@@ -263,6 +263,43 @@ Estado: activa
 
 ---
 
+## AD-08 — Ancho máximo de lectura: 720 px
+
+Fecha: 2026-08-23
+
+**Contexto.** RF-20 exige que la columna de texto deje de crecer a partir de un
+ancho máximo de lectura, pero deja el valor concreto sin fijar a propósito
+(CA-01.5). Alguien tiene que elegirlo al implementar HU-01.
+
+**Alternativas consideradas.**
+
+- *Un valor en caracteres (medida tipográfica, ~65-75 caracteres por línea),
+  recalculado según la fuente.* Más correcto tipográficamente, pero
+  `gpui`/`gpui-component` no exponen todavía en esta feature una forma sencilla
+  de medir el ancho de un carácter para convertirlo a píxeles antes de layout;
+  habría que resolverlo con un componente de texto más elaborado que no hace
+  falta para HU-01. Aplazada: si se necesita más adelante, esta decisión se
+  marca superada.
+- *720 px fijos.* Elegida. Es la cifra que usan como referencia habitual sitios
+  de lectura continua de prosa técnica (documentación, artículos), y con el
+  tamaño de letra de párrafo por defecto (16 px) cae dentro del rango de 65-75
+  caracteres por línea que la tipografía editorial considera cómodo de leer.
+- *Ancho de ventana completo, sin límite.* Rechazada: es justo lo que RF-20
+  prohíbe; en monitores anchos las líneas se volverían incómodamente largas.
+
+**Decisión.** La columna de texto tiene `max-width: 720px`, centrada con
+márgenes automáticos a ambos lados cuando la ventana es más ancha.
+Implementado en `render.rs` como la constante `READING_WIDTH`.
+
+**Consecuencias.** Es un número fijo, no derivado del tamaño de fuente: si
+HU-02 o HU-04 cambian la tipografía base de forma notable, hay que revisar si
+720 px sigue siendo la medida cómoda, y registrarlo como revisión de esta
+decisión si cambia.
+
+Estado: activa
+
+---
+
 ## Decisiones que ya se sabe que habrá que tomar
 
 No son decisiones: son avisos de dónde van a aparecer, para que no se tomen por
@@ -272,8 +309,6 @@ descuido y sin dejar rastro.
   caminos previsibles son leer la configuración del sistema directamente o usar
   lo que expongan GPUI o `gpui-component`. Se decide al implementar HU-04. No
   bloquea HU-01, HU-02 ni HU-03.
-- **El valor concreto del ancho máximo de lectura** (RF-20, CA-01.5). Ya está
-  anotado como riesgo en `plan.md`. Se decide al implementar HU-01.
 - **Qué biblioteca analiza el YAML del front matter** (RF-12). Pertenece a la
   feature `contenido-enriquecido`; no bloquea nada de esta.
 - **Cómo se abren los enlaces externos** (RF-15). El crate `open`, versión 5.4.1

@@ -9,6 +9,9 @@ use crate::{app::AppState, markdown::Block};
 /// Maximum reading width, per AD-08.
 const READING_WIDTH: f32 = 720.0;
 
+/// Horizontal padding (both sides combined) around the reading column, from `p_8`.
+const HORIZONTAL_PADDING: f32 = 64.0;
+
 pub struct DocumentView {
     state: AppState,
 }
@@ -20,8 +23,11 @@ impl DocumentView {
 }
 
 impl Render for DocumentView {
-    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
-        let mut column = div().v_flex().gap_4().w_full().max_w(px(READING_WIDTH));
+    fn render(&mut self, window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+        let available = f32::from(window.viewport_size().width) - HORIZONTAL_PADDING;
+        let column_width = available.min(READING_WIDTH).max(0.0);
+
+        let mut column = div().v_flex().gap_4().w(px(column_width));
 
         for block in &self.state.blocks {
             column = column.child(render_block(block));
@@ -41,10 +47,12 @@ impl Render for DocumentView {
 fn render_block(block: &Block) -> impl IntoElement {
     match block {
         Block::Heading(level, text) => div()
+            .w_full()
+            .whitespace_normal()
             .font_bold()
             .text_size(px(heading_size(*level)))
             .child(text.clone()),
-        Block::Paragraph(text) => div().child(text.clone()),
+        Block::Paragraph(text) => div().w_full().whitespace_normal().child(text.clone()),
     }
 }
 

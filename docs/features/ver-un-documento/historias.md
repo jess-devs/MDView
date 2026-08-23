@@ -41,7 +41,8 @@ editor de código solo para leerlo.
 5. CA-01.5 — Al ensanchar la ventana más allá del ancho máximo de lectura, la
    columna de texto deja de crecer y queda centrada, con margen a ambos lados.
 
-**Estado.** pendiente
+**Estado.** verificada. Los cinco criterios pasan por observación; el detalle
+está en `docs/04-calidad.md`.
 
 ---
 

@@ -4,7 +4,7 @@ Visor de archivos Markdown para escritorio, escrito en Rust con GPUI. Abre
 documentos `.md` renderizados en pestañas, con el objetivo de sustituir la
 costumbre de abrir un IDE solo para leer un archivo de texto.
 
-Estado: en documentación. Todavía no hay código.
+Estado: HU-01 implementada y verificada. Ver `docs/features/ver-un-documento/historias.md`.
 
 ## Documentación
 
@@ -17,11 +17,11 @@ tocar código.
 | `docs/01-alcance.md` | Dentro y fuera del alcance, supuestos y preguntas abiertas. |
 | `docs/02-requisitos.md` | Requisitos funcionales y no funcionales de todo el sistema. |
 | `docs/03-arquitectura.md` | Fronteras entre módulos, convenciones y el índice de todas las decisiones. |
+| `docs/04-calidad.md` | Resultado observado de cada criterio de aceptación, historia por historia. |
 | `docs/features/ver-un-documento/` | Requisitos, historias, plan y decisiones de la primera feature. |
 
-Falta por escribir `docs/04-calidad.md`, que se abre al verificar la primera
-historia y recoge el resultado observado de cada criterio. Esta tabla se
-amplía en la misma fase en que cada archivo aparece.
+Estado: HU-01 verificada. El resto de historias de `ver-un-documento` sigue
+pendiente.
 
 El trabajo está dividido en cuatro features. Solo la primera tiene artefactos; el
 orden de las cuatro y el reparto de requisitos entre ellas está en
