@@ -1,0 +1,9 @@
+[package]
+name = "mdview"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+gpui = "=0.2.2"
+gpui-component = { version = "=0.5.1", default-features = false }
+pulldown-cmark = "0.13.4"
