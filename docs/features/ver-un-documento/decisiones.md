@@ -1,7 +1,7 @@
 # Decisiones — ver-un-documento
 
 > Estado: borrador
-> Última actualización: 2026-08-20
+> Última actualización: 2026-08-23
 > Modo: new-project
 
 Aquí se registra toda decisión que alguien pudiera querer revertir más adelante,
@@ -103,6 +103,44 @@ elementos propio descrito en `03-arquitectura.md`. El renderizador de Markdown d
   revisarse y marcarse como superada, no defenderse por haberla escrito antes.
 - RF-12 y RF-13 pertenecen a la feature 2, no a esta. La decisión se toma ahora
   porque determina cómo se construye HU-02, que sí es de esta.
+
+**Revisión (2026-08-23), antes de empezar HU-02.** Se leyó el código real de
+`crates/ui/src/text/` en el repositorio de `gpui-component` (versión v0.5.1
+exacta, la que fija AD-03), no solo su documentación.
+
+- *RF-12 (front matter como tabla de propiedades).* `format/markdown.rs` no
+  tiene ningún tratamiento de front matter: pasa el texto crudo directamente a
+  `markdown::to_mdast` (el analizador CommonMark de la crate `markdown`, no
+  `pulldown-cmark`). Un `---` inicial se interpretaría como regla horizontal
+  seguida de un párrafo, no como propiedades. Pero esto resulta ser irrelevante
+  para la decisión: extraer el front matter es una operación de texto sobre la
+  cadena cruda, previa a cualquier analizador de Markdown, así que no depende
+  de si el renderizador es el propio o el de `gpui-component`. RF-12 no es un
+  argumento a favor ni en contra de esta decisión.
+- *RF-13 (subconjunto cerrado de HTML).* Este es el argumento real, y se
+  confirma con evidencia concreta. El HTML embebido dentro de Markdown (tanto
+  en bloque como en línea) se resuelve en `format/markdown.rs` llamando a
+  `format::html::parse`, que reconoce un conjunto de etiquetas fijado en un
+  `match` interno: `em`/`i`, `strong`/`b`, `del`/`s`, `code`, `a`, `img` en
+  línea, y `br`, `h1`-`h6`, `ul`, `ol`, `li`, `table`, `blockquote` en bloque.
+  Comparado con la lista cerrada de RF-13 (`img`, `a`, `b`, `strong`, `i`,
+  `em`, `code`, `br`, `hr`, `p`, `ul`, `li`, `table`, `details`, `summary`,
+  `div` con alineación centrada):
+  - Le faltan cinco etiquetas que RF-13 exige con formato propio: `hr`, `p`,
+    `details`, `summary`, `div` centrado.
+  - Formatea de más cinco que RF-13 exige mostrar como texto plano sin su
+    marcado por no estar en la lista: `h1`-`h6`, `del`/`s`, `ol`, `blockquote`.
+  - La función que decide esto es `pub(crate)`: no hay ninguna API pública
+    para sustituir o ampliar esa tabla de etiquetas desde fuera de la crate.
+    Esto coincide con lo que la propia documentación de `TextView` declara
+    como objetivo explícito: *"Not Goals: Customization of the complex style
+    ... If you want to like this, you must fork your version."*
+
+**Conclusión.** AD-02 se mantiene activa, ahora con evidencia en vez de con
+la sospecha con la que se tomó. `gpui-component` no es moldeable a la lista
+cerrada de RF-13 sin forkear la dependencia, que es justo el coste que esta
+decisión ya había aceptado pagar por otra vía (renderizador propio). No se
+marca como superada.
 
 Estado: activa
 

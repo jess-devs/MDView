@@ -49,5 +49,29 @@ máquina), que es lo que exige HU-06. Se anota aquí solo como alerta temprana,
 tal como pide `plan.md`: el tamaño de `gpui-component` (~48 000 líneas) es
 candidato sospechoso.
 
+**Medida informal de arranque, build de release (2026-08-23, sigue sin ser
+verificación).** Mismo método (`cargo build --release`, luego `Stopwatch`
+desde el lanzamiento del proceso hasta `MainWindowHandle` no nulo), mismo
+documento de prueba. Tres lanzamientos consecutivos, sin reiniciar la
+máquina:
+
+1. **~3.8 s** — primer lanzamiento tras compilar, con el binario recién
+   escrito a disco y sin caché de disco propia todavía.
+2. **~1.1 s** — segundo lanzamiento, caché ya caliente.
+3. **~0.9 s** — tercer lanzamiento, caché caliente.
+
+El build de release es entre 2 y 6 veces más rápido que el de depuración
+(esperable: optimizado, sin símbolos de depuración), pero **el riesgo de
+RNF-01 no queda descartado**: incluso con caché caliente el segundo
+lanzamiento sigue por encima de 1 s, y el primero (el más parecido a lo que
+vería un usuario que abre el archivo por primera vez en una sesión, o tras
+reiniciar) lo cuadruplica. Ninguna de las tres cifras es la medición oficial
+de HU-06 —falta el arranque en frío real con reinicio de máquina y el
+instrumentado de AD-07 que mide hasta el documento visible, no hasta que
+existe ventana—, pero la tendencia es clara: **el margen sobre 1 s es
+estrecho o inexistente incluso en el mejor caso medido informalmente**, así
+que el riesgo de tamaño de `gpui-component` sobre RNF-01 sigue vivo y debe
+vigilarse en HU-06, no darse por resuelto por pasar a release.
+
 **Estado de la historia:** verificada. Los cinco criterios pasan por
 observación directa.
