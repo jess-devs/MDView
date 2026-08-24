@@ -134,3 +134,55 @@ resuelve RF-18 o si solo es una coincidencia del tema por defecto de
 
 **Estado de la historia:** verificada. Los diez criterios pasan por
 observación directa.
+
+---
+
+## HU-03 — Leer bloques de código sin que estorben
+
+Verificado el 2026-08-23, en la misma máquina, con `pruebas/documento-completo.md`
+ampliado con un segundo bloque de código (Python, con su propia línea larga
+distinta) para poder comprobar que dos bloques desplazan de forma
+independiente — no solo que uno se desplaza sin mover el resto del documento.
+Capturas en `capturas/`.
+
+| Criterio | Resultado | Evidencia |
+| --- | --- | --- |
+| CA-03.1 | pasa | `capturas/ca-03.1-03.2-03.3-03.4-bloques-codigo.png`. Ambos bloques en tipografía monoespaciada. |
+| CA-03.2 | pasa | Misma captura: fondo gris de los bloques, distinguible del fondo oscuro del documento. |
+| CA-03.3 | pasa | Misma captura: todo el texto del mismo color; ninguna palabra clave (`fn`, `def`, `return`) aparece coloreada distinto. |
+| CA-03.4 | pasa | Misma captura: los saltos de línea del bloque y la sangría de 4 espacios de `parametro_uno + ...` se ven tal como están en el archivo. |
+| CA-03.5 | pasa | `capturas/ca-03.5-03.6-scroll-horizontal-independiente.png`. El primer bloque, desplazado hasta el final de su línea (`-> i32 {`, con la barra de scroll horizontal pegada al extremo derecho); la línea no aparece partida en ningún momento del desplazamiento. |
+| CA-03.6 | pasa | Misma captura: con el primer bloque desplazado a mitad de su línea, el segundo bloque y los párrafos que los rodean (`Un segundo bloque de código...`, la sección `Tabla`) siguen exactamente en su sitio. |
+
+**Notas de proceso — un bug real de identidad de estado, encontrado al
+probar con dos bloques de código, no con uno:**
+
+`gpui-component` ofrece `overflow_x_scrollbar()` como atajo para añadir
+scroll horizontal y su barra visual de una vez. Con un único bloque de código
+en el documento funcionaba. Al añadir un segundo bloque para comprobar
+CA-03.6 con más rigor del que pide su letra literal, se detectó que
+**desplazar un bloque desplazaba también al otro**: `overflow_x_scrollbar()`
+deriva el identificador de su estado con `Location::caller()` — el punto del
+código fuente donde se llama, el mismo para cada iteración de un bucle —, así
+que todos los bloques de código de un documento comparten sin querer una sola
+posición de scroll.
+
+Se corrigió sustituyendo el atajo por un `ScrollHandle` propio por bloque
+(clave `("code-block-scroll", índice)`), replicando a mano la estructura
+interna que usa `gpui-component` para su propio `Scrollable` (contenedor
+`.relative()` → área de scroll `.flex_row().overflow_x_scroll()` → barra de
+scroll como **hermana**, no hija, del área de scroll). El primer intento
+anidó la barra de scroll dentro del área con overflow, siguiendo la lectura
+más obvia de la API pública; no se veía ni respondía a ningún intento de
+interacción. Registrado como AD-10.
+
+**Hallazgo de interacción, no de diseño.** La rueda del ratón vertical simple
+no mueve un bloque que solo tiene overflow horizontal — hace falta rueda
+horizontal real (Shift+rueda, gesto de trackpad) o arrastrar la barra. Esto
+retrasó la verificación (varios intentos de simular rueda vertical no
+hicieron nada) pero no es un defecto de la aplicación: es el comportamiento
+esperable de GPUI para una región que no tiene overflow vertical. Anotado en
+AD-10 para que nadie lo confunda con un bug si lo redescubre.
+
+**Estado de la historia:** verificada. Los seis criterios pasan por
+observación directa.

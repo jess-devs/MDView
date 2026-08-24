@@ -108,7 +108,8 @@ mentalmente o leerlos sin perder la sangría.
 6. CA-03.6 — Al desplazar horizontalmente ese bloque, el resto del documento no
    se mueve: los párrafos anteriores y posteriores siguen en su sitio.
 
-**Estado.** pendiente
+**Estado.** verificada. Los seis criterios pasan por observación; el detalle
+está en `docs/04-calidad.md`.
 
 ---
 

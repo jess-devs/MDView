@@ -2,7 +2,10 @@
 //! Owns no knowledge of the filesystem or of Markdown syntax.
 
 use gpui::*;
-use gpui_component::{scroll::ScrollableElement, ActiveTheme, *};
+use gpui_component::{
+    scroll::{ScrollableElement, ScrollbarAxis},
+    ActiveTheme, *,
+};
 
 use crate::{
     app::AppState,
@@ -35,8 +38,9 @@ impl Render for DocumentView {
 
         let mut column = div().v_flex().gap_4().w(px(column_width));
 
+        let mut code_index = 0;
         for block in &self.state.blocks {
-            column = column.child(render_block(block, cx));
+            column = column.child(render_block(block, &mut code_index, window, cx));
         }
 
         div().size_full().overflow_y_scrollbar().child(
@@ -50,7 +54,7 @@ impl Render for DocumentView {
     }
 }
 
-fn render_block(block: &Block, cx: &App) -> AnyElement {
+fn render_block(block: &Block, code_index: &mut usize, window: &mut Window, cx: &mut App) -> AnyElement {
     match block {
         Block::Heading(level, spans) => div()
             .w_full()
@@ -74,25 +78,70 @@ fn render_block(block: &Block, cx: &App) -> AnyElement {
                 .border_l_2()
                 .border_color(cx.theme().border);
             for b in blocks {
-                quote = quote.child(render_block(b, cx));
+                quote = quote.child(render_block(b, code_index, window, cx));
             }
             quote.into_any_element()
         }
-        Block::List { ordered, start, items } => render_list(*ordered, *start, items, cx).into_any_element(),
+        Block::List { ordered, start, items } => {
+            render_list(*ordered, *start, items, code_index, window, cx).into_any_element()
+        }
         Block::Table { header, rows } => render_table(header, rows, cx).into_any_element(),
-        Block::CodeBlock(text) => div()
-            .w_full()
-            .whitespace_normal()
-            .font_family(cx.theme().mono_font_family.clone())
-            .text_size(px(BODY_SIZE))
-            .bg(cx.theme().muted)
-            .p_2()
-            .child(text.clone())
-            .into_any_element(),
+        Block::CodeBlock(text) => {
+            // Each code block needs its own horizontal ScrollHandle: the
+            // convenience `overflow_x_scrollbar()` derives its state key from
+            // this call site alone, so with several code blocks in one
+            // document they would all share one scroll position. Keying our
+            // own handle by index avoids that. See AD-10.
+            let id = *code_index;
+            *code_index += 1;
+
+            let handle = window
+                .use_keyed_state(("code-block-scroll", id), cx, |_, _| ScrollHandle::default())
+                .read(cx)
+                .clone();
+
+            // Structure mirrors gpui-component's own `Scrollable::render`: a
+            // `.relative()` outer wrapper, an inner scrolling area holding
+            // the content, and the scrollbar as a sibling overlay (it is
+            // absolutely positioned against the outer wrapper) — not a child
+            // of the scrolling div itself, or it scrolls away with the text.
+            div()
+                .id(("code-block", id))
+                .w_full()
+                .relative()
+                .bg(cx.theme().muted)
+                .child(
+                    div()
+                        .id(("code-block-scroll-area", id))
+                        .flex()
+                        .flex_row()
+                        .w_full()
+                        .overflow_x_scroll()
+                        .track_scroll(&handle)
+                        .p_2()
+                        .child(
+                            div()
+                                .flex_1()
+                                .whitespace_nowrap()
+                                .font_family(cx.theme().mono_font_family.clone())
+                                .text_size(px(BODY_SIZE))
+                                .child(text.clone()),
+                        ),
+                )
+                .scrollbar(&handle, ScrollbarAxis::Horizontal)
+                .into_any_element()
+        }
     }
 }
 
-fn render_list(ordered: bool, start: u64, items: &[ListItem], cx: &App) -> impl IntoElement {
+fn render_list(
+    ordered: bool,
+    start: u64,
+    items: &[ListItem],
+    code_index: &mut usize,
+    window: &mut Window,
+    cx: &mut App,
+) -> impl IntoElement {
     let mut list = div().v_flex().gap_2().w_full().pl_5();
 
     for (i, item) in items.iter().enumerate() {
@@ -105,7 +154,7 @@ fn render_list(ordered: bool, start: u64, items: &[ListItem], cx: &App) -> impl 
 
         let mut content = div().v_flex().gap_2().w_full();
         for block in &item.children {
-            content = content.child(render_block(block, cx));
+            content = content.child(render_block(block, code_index, window, cx));
         }
 
         list = list.child(

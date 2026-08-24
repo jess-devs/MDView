@@ -394,6 +394,65 @@ Estado: activa
 
 ---
 
+## AD-10 — Scroll horizontal de los bloques de código: `ScrollHandle` propio por bloque, no la envoltura automática de `gpui-component`
+
+Fecha: 2026-08-23
+
+**Contexto.** CA-03.5 y CA-03.6 exigen que cada bloque de código se desplace
+horizontalmente por sí solo, sin mover el resto del documento ni a otros
+bloques de código. `gpui-component` ofrece un método de conveniencia,
+`overflow_x_scrollbar()`, que añade de una vez el scroll y su barra visual.
+
+**Alternativas consideradas.**
+
+- *`overflow_x_scrollbar()` de `gpui-component`, dentro del bucle que
+  renderiza los bloques.* Rechazada tras comprobarlo: esta envoltura deriva
+  el identificador de su estado de desplazamiento con
+  `#[track_caller]`/`Location::caller()`, es decir, del punto del código
+  fuente donde se llama — el mismo para todas las llamadas dentro de un
+  bucle. Con un solo bloque de código no se nota; con dos o más, **todos
+  comparten la misma posición de scroll**: desplazar uno desplaza a los
+  demás. Se comprobó abriendo el documento de prueba con dos bloques de
+  código y desplazando el primero: el segundo se movía a la vez.
+- *`ScrollHandle` propio, guardado con `window.use_keyed_state` bajo una
+  clave que incluye el índice del bloque, más los métodos de más bajo nivel
+  `overflow_x_scroll()` + `track_scroll(&handle)` + `.scrollbar(&handle,
+  ScrollbarAxis::Horizontal)`.* Elegida. Cada bloque de código lleva su
+  propio índice (contador que recorre `render_block` en orden), así que cada
+  uno obtiene un `ScrollHandle` independiente.
+
+**Decisión.** Los bloques de código no usan `overflow_x_scrollbar()`. Cada
+uno construye su propio `ScrollHandle` con una clave `("code-block-scroll",
+índice)`, y la estructura de su `div` replica la que usa internamente
+`Scrollable::render` de `gpui-component`: un contenedor `.relative()`, dentro
+un área de scroll `.flex().flex_row().overflow_x_scroll().track_scroll(...)`
+con el texto como hijo `.flex_1()`, y la barra de scroll como hijo hermano
+del área de scroll (no anidada dentro de ella) vía `.scrollbar(...)`.
+Implementado en `render.rs`.
+
+**Consecuencias.**
+
+- Replicar esta estructura a mano fue necesario porque `gpui-component` no
+  expone una variante de `overflow_x_scrollbar()` que acepte un identificador
+  explícito; la única forma de evitar la colisión es no usar esa envoltura.
+  Si una versión futura de `gpui-component` añade esa variante, esta decisión
+  se revisa.
+- La estructura importa: anidar la barra de scroll *dentro* del área con
+  overflow (en vez de como hermana) impide que se vea o reciba eventos —lo
+  primero que se probó, y falló—. Cualquiera que toque este código debe
+  conservar los tres niveles (contenedor relativo / área de scroll / barra
+  hermana), no simplificarlos de vuelta a uno solo.
+- La rueda del ratón vertical simple **no** desplaza un bloque que solo
+  tiene overflow horizontal; hace falta rueda horizontal real (Shift+rueda en
+  la mayoría de ratones, gesto horizontal de trackpad) o arrastrar la barra.
+  Esto no es una decisión de diseño, es una limitación de GPUI observada al
+  verificar, y queda anotada por si alguien la redescubre y cree que es un
+  bug nuevo.
+
+Estado: activa
+
+---
+
 ## Decisiones que ya se sabe que habrá que tomar
 
 No son decisiones: son avisos de dónde van a aparecer, para que no se tomen por
