@@ -79,7 +79,8 @@ contenga todos los elementos citados.
    marcar y una casilla marcada en los marcados.
 10. CA-02.10 — El texto tachado se muestra con una línea que lo atraviesa.
 
-**Estado.** pendiente
+**Estado.** verificada. Los diez criterios pasan por observación; el detalle
+está en `docs/04-calidad.md`.
 
 ---
 

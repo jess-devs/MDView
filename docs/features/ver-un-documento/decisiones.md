@@ -338,6 +338,62 @@ Estado: activa
 
 ---
 
+## AD-09 — Valores tipográficos y visuales de HU-02
+
+Fecha: 2026-08-23
+
+**Contexto.** RF-08/RF-09 y sus criterios (CA-02.1 a CA-02.10) exigen que los
+elementos se *distingan* entre sí (tamaños decrecientes, negrita/cursiva
+distinguibles, casillas marcadas/sin marcar, cabecera de tabla distinguible,
+etc.) sin fijar cifras ni glifos concretos. Alguien tiene que elegirlos al
+implementar. Se agrupan aquí porque son decisiones pequeñas y de la misma
+naturaleza (valores de estilo, no de arquitectura), no porque compartan una
+sola alternativa considerada.
+
+**Decisión.**
+
+- **Escala de encabezados**, implementada en `render.rs` como `heading_size`:
+  H1 32px, H2 28px, H3 24px, H4 20px, H5 18px, H6 16px (= tamaño de párrafo).
+  Escala arbitraria pero estrictamente decreciente, que es lo único que pide
+  CA-02.1; no se derivó de un sistema tipográfico formal.
+- **Tamaño de párrafo base**: 16px, constante `BODY_SIZE`.
+- **Marcadores de lista**: viñeta `•` para listas no ordenadas, `N.` para
+  ordenadas (respetando el número inicial de RF-08 si el Markdown lo fija),
+  y las casillas Unicode `☐`/`☑` para listas de tareas en vez de un
+  componente de casilla interactivo de `gpui-component` — no hace falta que
+  sea interactiva (RF-08 es de solo lectura, AD-05) y el glifo ya cumple
+  CA-02.9 sin añadir superficie de la dependencia.
+- **Cita**: `padding-left` de 16px (`pl_4`) más un borde izquierdo de 2px
+  (`border_l_2`) del color `theme.border`.
+- **Regla horizontal**: línea de 1px de alto con fondo `theme.border`.
+- **Tabla**: filas como `flex` con columnas `flex_1` (mismo ancho, alineadas
+  entre sí); la fila de cabecera lleva fondo `theme.muted` y un borde inferior
+  de 2px, las filas de cuerpo un borde inferior de 1px, ambos en
+  `theme.border`. Sin líneas verticales: no lo exige CA-02.8 y añadirlas es
+  más superficie visual sin más información.
+- **Código en línea**: familia `theme.mono_font_family` (ya provista por
+  `gpui-component`, RF-10 la necesitará igual en HU-03) y fondo
+  `theme.muted`, aplicados por *run* de texto (ver nota técnica más abajo).
+
+**Nota técnica que motiva parte de lo anterior.** `gpui::TextRun` (la unidad
+con la que `StyledText` mezcla estilos dentro de un mismo párrafo) no tiene
+campo de tamaño de fuente: ni `TextRun` ni `Font` lo llevan. El tamaño de
+fuente solo se puede fijar de forma ambiental, con `.text_size()` en el `div`
+que envuelve el texto — por eso la negrita/cursiva/tachado/código sí varían
+por tramo dentro de un párrafo (vía `HighlightStyle`), pero el tamaño no: cada
+bloque (encabezado, párrafo, celda) es una única llamada a `render_spans` con
+un tamaño uniforme. No hace falta más para HU-02: ningún criterio pide mezclar
+tamaños dentro de la misma línea.
+
+**Consecuencias.** Ninguno de estos valores está pensado como definitivo; son
+la primera cifra razonable, no un sistema de diseño. Si HU-04 (tema del
+sistema) o una revisión visual posterior los cambia, se anota aquí como
+revisión, no se reabre esta decisión por sorpresa.
+
+Estado: activa
+
+---
+
 ## Decisiones que ya se sabe que habrá que tomar
 
 No son decisiones: son avisos de dónde van a aparecer, para que no se tomen por

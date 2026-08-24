@@ -75,3 +75,62 @@ vigilarse en HU-06, no darse por resuelto por pasar a release.
 
 **Estado de la historia:** verificada. Los cinco criterios pasan por
 observación directa.
+
+---
+
+## HU-02 — Leer un documento con el formato que el autor escribió
+
+Verificado el 2026-08-23, en la misma máquina, lanzando
+`target\debug\mdview.exe` con `pruebas/documento-completo.md` (compartido con
+HU-03; contiene también los elementos de CA-03.x). Capturas en `capturas/`.
+
+| Criterio | Resultado | Evidencia |
+| --- | --- | --- |
+| CA-02.1 | pasa | `capturas/ca-02.1-02.2-encabezados-enfasis.png`. H1 a H6 visibles, los seis con tamaño distinto y decreciente (AD-09). |
+| CA-02.2 | pasa | Misma captura: "texto en cursiva" en itálica, "texto en negrita" en negrita, "negrita y cursiva a la vez" en ambas, todo distinguible del texto normal alrededor. |
+| CA-02.3 | pasa | `capturas/ca-02.3-02.5-02.7-02.9-listas-cita-codigo.png`. Lista no ordenada de dos niveles: el segundo nivel ("Elemento anidado A/B") sangrado respecto al primero, cada elemento con su viñeta `•`. |
+| CA-02.4 | pasa | Misma captura, "Lista ordenada": 1, 2, 3 correlativos. |
+| CA-02.5 | pasa | Misma captura, sección "Cita": margen izquierdo mayor que el texto normal y marca vertical a la izquierda. |
+| CA-02.6 | pasa | `capturas/ca-02.6-02.8-02.10-hr-tabla-tachado.png`, sección "Regla horizontal": línea que recorre el ancho de la columna entre "Antes de la regla." y "Después de la regla.". |
+| CA-02.7 | pasa | `capturas/ca-02.3-02.5-02.7-02.9-listas-cita-codigo.png`, "Código en línea": `pulldown_cmark::Parser::new_ext` en tipografía monoespaciada con fondo propio, distinta de la del párrafo. |
+| CA-02.8 | pasa | `capturas/ca-02.6-02.8-02.10-hr-tabla-tachado.png`, sección "Tabla": rejilla de 3×3, fila de cabecera con fondo distinguible, columnas alineadas entre filas. |
+| CA-02.9 | pasa | `capturas/ca-02.3-02.5-02.7-02.9-listas-cita-codigo.png`, "Lista de tareas": casillas `☐` vacías y una `☑` marcada, visualmente distintas. |
+| CA-02.10 | pasa | `capturas/ca-02.6-02.8-02.10-hr-tabla-tachado.png`, sección "Tachado": "una parte tachada" con línea que la atraviesa. |
+
+También se comprobó que el reajuste de ancho de HU-01 (CA-01.4) sigue
+funcionando con el nuevo renderizador: estrechando la ventana a 500px, todos
+los elementos —listas, cita, código en línea— se reajustan sin desbordar el
+borde ni cortar palabras. No es un criterio de esta historia, pero era el
+riesgo de regresión más obvio de cambiar el mecanismo de texto.
+
+**Notas de proceso — dos bugs reales encontrados y corregidos antes de
+verificar:**
+
+1. **Los encabezados no variaban de tamaño.** `gpui::TextRun` (y el `Font`
+   que contiene) no llevan campo de tamaño de fuente — solo familia, peso y
+   estilo. El tamaño de fuente en GPUI es una propiedad ambiental del `div`
+   contenedor (`.text_size()`), no algo que se pueda variar por tramo dentro
+   de un `StyledText`. La primera versión intentaba fijar el tamaño dentro de
+   un `TextStyle` construido a mano por bloque, que `to_run()` simplemente
+   ignora. Se corrigió devolviendo `.text_size()` al `div` que envuelve cada
+   bloque (igual que en HU-01) y dejando que `render_spans` solo controle
+   familia/peso/estilo/tachado por tramo. El mismo problema afectaba al peso
+   (negrita) de los encabezados y de la fila de cabecera de la tabla: se
+   corrigió igual, fijando el peso base en el `TextStyle` de todo el bloque en
+   vez de en el `div`.
+2. **El texto tachado no se veía.** `StrikethroughStyle::default()` tiene
+   `thickness: 0px`, así que la línea existía pero con grosor cero —
+   invisible. Se corrigió fijando `thickness: px(1.0)` explícitamente.
+
+Ambos quedaron confirmados por observación tras el arreglo, no solo inferidos
+del código.
+
+**Hallazgo para HU-04.** Sin haber implementado todavía la detección de tema
+(RF-18), la aplicación ya arranca en modo oscuro en esta máquina y lo hace de
+forma consistente: `gpui_component::init(cx)` debe estar leyendo el tema de
+Windows por su cuenta. Cuando se aborde HU-04 hay que comprobar si esto ya
+resuelve RF-18 o si solo es una coincidencia del tema por defecto de
+`gpui-component`.
+
+**Estado de la historia:** verificada. Los diez criterios pasan por
+observación directa.

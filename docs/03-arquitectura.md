@@ -66,3 +66,4 @@ que le faltan entradas es peor que no tener índice.
 | AD-06 | Compilar como aplicación de ventanas de Windows, sin consola | `features/ver-un-documento/decisiones.md` | activa |
 | AD-07 | Medir el arranque con dos marcas de tiempo volcadas a un fichero, activadas por variable de entorno | `features/ver-un-documento/decisiones.md` | activa |
 | AD-08 | Ancho máximo de lectura: 720 px | `features/ver-un-documento/decisiones.md` | activa |
+| AD-09 | Valores tipográficos y visuales de HU-02 (tamaños, marcadores, cita, tabla, código en línea) | `features/ver-un-documento/decisiones.md` | activa |
