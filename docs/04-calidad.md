@@ -348,3 +348,44 @@ Leer después `C:\ruta\que\se\quiera\timing.txt`: cada línea trae
 
 **Estado de la historia:** en curso. La fase 1 (instrumentación, perfil,
 medida informal) está completa; CA-06.1 sigue sin verificar.
+
+---
+
+## HU-06 — Ver el documento sin esperar (fase 2: verificación de CA-06.1)
+
+Verificado el 2026-08-24 (madrugada), coordinado con el usuario. Método: el
+de `plan.md`, con una condición **más estricta** que la mínima documentada —
+en lugar de un solo reinicio antes de la primera medición con las tres
+medidas consecutivas, se reinició la máquina por completo **antes de cada
+una** de las tres, y cada reinicio se comprobó real leyendo
+`LastBootUpTime` antes de medir. Cada medición: `MDVIEW_TIMING` apuntando a
+`pruebas/timing.txt`, `target\release\mdview.exe` (perfil de AD-13) con
+`pruebas/documento-50kb.md`, documento visible confirmado en pantalla.
+
+Las tres líneas del fichero de medidas, copiadas aquí antes de borrarlo:
+
+```
+entrada_ms=1787558783978 primer_frame_ms=1787558785034 diferencia_ms=1055
+entrada_ms=1787558959579 primer_frame_ms=1787558960335 diferencia_ms=755
+entrada_ms=1787559074968 primer_frame_ms=1787559075933 diferencia_ms=965
+```
+
+| Criterio | Resultado | Evidencia |
+| --- | --- | --- |
+| CA-06.1 — <1 s hasta documento visible en los tres arranques en frío | **no pasa** | 1055 ms, 755 ms, 965 ms: el primero supera 1 s |
+
+**Lectura.** Dos de tres arranques cumplen y el que falla lo hace por 55 ms
+(5,5 %). El perfil de AD-13 acercó la cifra al objetivo pero, como su propia
+consecuencia anticipaba, no basta por sí solo: queda pendiente trabajo de
+optimización con nombre (los candidatos anotados en AD-13: reducir qué se
+carga de `gpui-component`, o revisar AD-01) o, alternativamente, renegociar
+el umbral de RNF-01 — esa elección es del usuario y no se toma aquí. No se
+registra como `pasa` por estar cerca: la letra del criterio exige menos de
+1 s **en los tres**.
+
+**Estado de la historia:** verificación ejecutada, CA-06.1 **no pasa**. La
+historia queda abierta a la espera de la decisión sobre el pendiente. Los
+datos de prueba (`pruebas/documento-50kb.md` y `pruebas/timing.txt`) se
+borran ya: las cifras están copiadas arriba y el archivo de 50 KB es
+regenerable; si la optimización pendiente exige repetir la medición, se
+regeneran según la instrucción de la fase 1.

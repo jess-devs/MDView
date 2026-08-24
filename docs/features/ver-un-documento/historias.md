@@ -182,11 +182,11 @@ código, MDView no me aporta nada.
 El método de medición está descrito en `plan.md`. No es un criterio: es la forma
 de observar este, y sin él CA-06.1 no se puede comprobar.
 
-**Estado.** en curso. Fase 1 completa (instrumentación `MDVIEW_TIMING` de
-AD-07, archivo de prueba de 50 KB, perfil de `release` de AD-13, medida
-informal en caliente). CA-06.1 sigue sin verificar: falta la fase 2, tres
-arranques en frío con reinicio de máquina, coordinada con el usuario. Detalle
-en `docs/04-calidad.md`.
+**Estado.** en curso — verificación ejecutada, CA-06.1 **no pasa** (1055 ms,
+755 ms, 965 ms en tres arranques en frío reales el 2026-08-24: el primero
+supera el segundo exigido). La historia queda abierta a la espera de decidir
+el pendiente: optimizar más (candidatos en AD-13) o renegociar el umbral de
+RNF-01. Detalle y evidencia en `docs/04-calidad.md`.
 
 ---
 
