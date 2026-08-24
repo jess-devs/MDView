@@ -282,3 +282,69 @@ independientes en `AppState` y no se pisan.
 
 **Estado de la historia:** verificada. Los tres criterios pasan por
 observación directa.
+
+---
+
+## HU-06 — Ver el documento sin esperar (fase 1: preparación)
+
+**Esto NO es la verificación de CA-06.1.** Esa verificación exige tres
+arranques en frío con reinicio de máquina entre cada uno, coordinados con el
+usuario, y queda pendiente como fase 2. Lo que sigue es la instrumentación
+lista, el perfil de `release` decidido (AD-13) y una medida informal en
+caliente que sirve de referencia y de alerta temprana, no de criterio de
+aceptación. HU-06 sigue **en curso**, no verificada.
+
+**Instrumentación `MDVIEW_TIMING` (AD-07).** Comprobada el 2026-08-24:
+lanzando `target\debug\mdview.exe` con la variable de entorno apuntando a un
+fichero, aparece una línea con las dos marcas y la diferencia:
+
+```
+entrada_ms=1787543747526 primer_frame_ms=1787543748831 diferencia_ms=1305
+```
+
+Sin la variable definida, se comprobó (lanzando y comprobando que el fichero
+no aparece) que no se crea ningún fichero — coste cero confirmado por
+observación, no solo por lectura del código.
+
+**Archivo de prueba.** `pruebas/documento-50kb.md`, generado, 50 032 bytes.
+Dato de prueba de esta historia: se borra al cerrarla, junto con los
+ficheros de medidas que genere la fase 2.
+
+**Medida informal en caliente, release con el perfil de AD-13 (2026-08-24).**
+Tres lanzamientos consecutivos de `target\release\mdview.exe` con
+`pruebas/documento-50kb.md`, caché de disco ya caliente, sin reiniciar la
+máquina:
+
+1. 642 ms
+2. 599 ms
+3. 588 ms
+
+Media ~610 ms. Antes de aplicar AD-13 (perfil de `release` por omisión,
+mismo método): 744 ms, 779 ms, 658 ms, media ~727 ms. La comparación completa
+y la decisión de adoptar el perfil están en AD-13.
+
+**Lectura de esta cifra.** ~610 ms en caliente dista de lo que exige RNF-01
+(<1 s) en el peor caso —arranque en frío—, que es justo lo que esta medida
+no mide. Con caché caliente casi todo el trabajo de carga de páginas y
+resolución de símbolos ya está hecho por el sistema operativo; un arranque en
+frío tras reiniciar la máquina no tiene ese margen. Sigue siendo el mismo
+riesgo que ya señalaba `plan.md` desde la Fase 4 por el tamaño de
+`gpui-component`: esta cifra es un dato a favor, no una resolución del
+riesgo.
+
+**Instrucción exacta para la fase 2 (arranque en frío, tras cada reinicio):**
+
+```powershell
+$env:MDVIEW_TIMING = "C:\ruta\que\se\quiera\timing.txt"
+& "E:\Code\Rust\MDView\target\release\mdview.exe" "E:\Code\Rust\MDView\pruebas\documento-50kb.md"
+```
+
+Repetir tres veces, cada una tras un reinicio completo de la máquina (no
+basta con cerrar y volver a abrir: el objetivo es que el sistema operativo
+no tenga nada de `mdview.exe` ni de sus bibliotecas en caché de páginas).
+Leer después `C:\ruta\que\se\quiera\timing.txt`: cada línea trae
+`diferencia_ms`, que es la cifra que exige CA-06.1. El fichero de medidas y
+`pruebas/documento-50kb.md` se borran al cerrar HU-06.
+
+**Estado de la historia:** en curso. La fase 1 (instrumentación, perfil,
+medida informal) está completa; CA-06.1 sigue sin verificar.

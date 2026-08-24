@@ -24,11 +24,12 @@ const BODY_SIZE: f32 = 16.0;
 
 pub struct DocumentView {
     state: AppState,
+    timing_scheduled: bool,
 }
 
 impl DocumentView {
     pub fn new(state: AppState) -> Self {
-        Self { state }
+        Self { state, timing_scheduled: false }
     }
 }
 
@@ -36,6 +37,19 @@ impl Render for DocumentView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         if let Some(message) = self.state.pending_notice.take() {
             window.push_notification(Notification::error(message), cx);
+        }
+
+        if !self.timing_scheduled {
+            self.timing_scheduled = true;
+            if let Some(path) = self.state.timing_path.clone() {
+                let start = self.state.start;
+                // Fires after THIS frame (which already includes the
+                // document below) is actually rendered, not when the view
+                // was merely created.
+                window.on_next_frame(move |_window, _cx| {
+                    crate::app::record_timing(&path, start);
+                });
+            }
         }
 
         let available = f32::from(window.viewport_size().width) - HORIZONTAL_PADDING;

@@ -6,5 +6,6 @@ mod markdown;
 mod render;
 
 fn main() {
-    app::run();
+    let start = std::time::SystemTime::now();
+    app::run(start);
 }

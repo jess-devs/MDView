@@ -565,6 +565,71 @@ Estado: activa
 
 ---
 
+## AD-13 — Perfil de release con LTO, `codegen-units = 1` y `strip`
+
+Fecha: 2026-08-24
+
+**Contexto.** RNF-01 (arranque en menos de 1 s) es el riesgo que `plan.md`
+viene señalando desde la Fase 4 por el tamaño de `gpui-component`. HU-06 fase
+1 pide comparar en caliente, con la instrumentación de AD-07, si un perfil de
+`release` más agresivo que el que trae `cargo` por omisión reduce el tiempo
+hasta el primer fotograma con el documento renderizado.
+
+**Medida.** Con `pruebas/documento-50kb.md` (~50 KB), tres lanzamientos en
+caliente por configuración, mismo método que el resto de medidas informales
+de esta historia (no es CA-06.1):
+
+| Configuración | Lanzamiento 1 | Lanzamiento 2 | Lanzamiento 3 | Media |
+| --- | --- | --- | --- | --- |
+| `release` por omisión | 744 ms | 779 ms | 658 ms | ~727 ms |
+| `release` con LTO + `codegen-units=1` + `strip` | 642 ms | 599 ms | 588 ms | ~610 ms |
+
+Mejora media: ~117 ms, ~16 %. Las tres cifras de la configuración nueva
+quedan por debajo de las tres de la configuración por omisión.
+
+**Alternativas consideradas.**
+
+- *Dejar el perfil de `release` por omisión.* Rechazada: la mejora medida es
+  real y consistente entre lanzamientos, no ruido, y RNF-01 tiene un margen
+  estrecho (ver `04-calidad.md`, medida de HU-01/HU-02).
+- *`lto = true` + `codegen-units = 1` + `strip = true`.* Elegida. `lto`
+  permite optimizar entre crates (relevante con una dependencia tan grande
+  como `gpui-component`); `codegen-units = 1` renuncia a paralelismo de
+  compilación a cambio de mejores optimizaciones; `strip` quita símbolos de
+  depuración del binario final.
+- *Añadir también `panic = "abort"`.* Rechazada por ahora: cambia la
+  semántica de los `panic!` (ya no hay unwind), y no se ha comprobado que
+  `gpui`/`gpui-component` sean indiferentes a eso. Es una optimización más
+  agresiva que la que pide resolver el riesgo medido; se revisita si hace
+  falta apurar más.
+
+**Decisión.** `Cargo.toml` lleva:
+
+```toml
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
+```
+
+**Consecuencias.**
+
+- **Coste medido en tiempo de compilación**: el build de `release` pasó de
+  ~3 min 50 s a ~9 min 48 s (~2.6×). Es un coste que paga quien compila
+  (desarrollo, CI si lo hubiera), no el usuario final, y solo en `release`;
+  el perfil de depuración no cambia.
+- El tamaño del binario apenas varió (de ~12.58 MB a ~12.59 MB): esta mejora
+  es de tiempo de arranque, no de tamaño.
+- Ninguna de estas cifras es la verificación oficial de CA-06.1: faltan los
+  tres arranques en frío con reinicio de máquina que exige HU-06 fase 2. Si
+  esos arranques en frío muestran que el margen sigue sin ser suficiente,
+  esta decisión no basta por sí sola y hay que buscar más (por ejemplo,
+  reducir qué se carga de `gpui-component`, o revisar AD-01).
+
+Estado: activa
+
+---
+
 ## Decisiones que ya se sabe que habrá que tomar
 
 No son decisiones: son avisos de dónde van a aparecer, para que no se tomen por
