@@ -511,6 +511,60 @@ Estado: activa
 
 ---
 
+## AD-12 — Avisos de error con el componente `Notification` de `gpui-component`, mensaje y clasificación propios
+
+Fecha: 2026-08-23
+
+**Contexto.** RF-17/CA-05.x exigen un aviso temporal que nombre el archivo y
+la causa, y que desaparezca solo (CA-05.4). `document::load` hasta HU-04
+devolvía `io::Result<String>` y `app.rs` lo descartaba con `.ok()`
+—exactamente el punto que `03-arquitectura.md` señala como el lugar donde el
+error debe empezar a subir como valor en vez de silenciarse—.
+
+**Decisión.**
+
+- `document::LoadError` (nuevo, en `document.rs`) clasifica la lectura
+  fallida en las tres causas que pide RF-17 (`NotFound`,
+  `PermissionDenied`, `NotText`) más un cajón de sastre `Unreadable` para
+  cualquier otro error de E/S que `fs::read` pudiera devolver (p. ej. la
+  ruta es un directorio) y que ningún criterio de esta feature ejercita.
+  `document` solo clasifica; no redacta el texto que se muestra, según la
+  frontera de responsabilidades de `03-arquitectura.md`.
+- `app.rs` traduce esa clasificación a un mensaje en español que nombra el
+  archivo, y lo deja en `AppState.pending_notice`.
+- `render.rs` lo consume una sola vez, en el primer `render()`, con
+  `window.push_notification(Notification::error(mensaje), cx)` — el
+  componente de `gpui-component`, con su comportamiento por omisión de
+  auto-ocultarse a los 5 segundos (`autohide` por defecto), en vez de
+  construir un aviso propio con temporizador manual.
+
+**Alternativas consideradas.**
+
+- *Cronómetro propio con `Timer` y un campo de visibilidad en el estado.*
+  Rechazada: reimplementaría lo que `Notification`/`NotificationList` ya
+  hacen, incluida la animación de aparición/desaparición.
+- *Duración de auto-ocultado distinta de 5 s.* No se cambió: CA-05.4 solo
+  exige que desaparezca solo, no en cuánto tiempo, y 5 s es razonable para
+  leer una frase corta.
+
+**Nota técnica.** `Root` (el componente raíz que ya usa `app.rs`) **no**
+pinta las notificaciones por sí solo: `impl Render for Root` no incluye la
+capa de notificaciones en su árbol. Hay que componerla a mano llamando a la
+función asociada `Root::render_notification_layer(window, cx)` desde la
+vista de nivel superior propia (`DocumentView::render`) y añadir su
+resultado (`Option<impl IntoElement>`) como hijo. Sin este paso,
+`push_notification` actualiza el estado pero no se pinta nada — así es como
+se descubrió, verificando: la primera versión no tenía esta línea y el aviso
+nunca aparecía, aunque el código compilaba y no fallaba.
+
+**Consecuencias.** Si más adelante se necesitan diálogos o *sheets* de
+`gpui-component` (no previstos en esta feature), la misma composición manual
+hace falta para `Root::render_dialog_layer` y `Root::render_sheet_layer`.
+
+Estado: activa
+
+---
+
 ## Decisiones que ya se sabe que habrá que tomar
 
 No son decisiones: son avisos de dónde van a aparecer, para que no se tomen por

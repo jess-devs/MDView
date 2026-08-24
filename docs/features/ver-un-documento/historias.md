@@ -160,7 +160,8 @@ vacía preguntándome si la aplicación está rota.
 5. CA-05.5 — En los tres casos anteriores la aplicación no termina de forma
    abrupta ni deja de responder.
 
-**Estado.** pendiente
+**Estado.** verificada. Los cinco criterios pasan por observación; el
+detalle está en `docs/04-calidad.md`.
 
 ---
 

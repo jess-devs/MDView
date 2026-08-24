@@ -18,6 +18,9 @@ pub struct AppState {
     #[allow(dead_code)]
     pub mode: Mode,
     pub blocks: Vec<markdown::Block>,
+    /// Set when the requested file could not be shown (RF-17). `render`
+    /// pushes it as a notification once, then clears it.
+    pub pending_notice: Option<String>,
 }
 
 pub fn run() {
@@ -27,15 +30,19 @@ pub fn run() {
     app.run(move |cx| {
         gpui_component::init(cx);
 
-        let blocks = path
-            .as_deref()
-            .and_then(|path| document::load(path).ok())
-            .map(|text| markdown::parse(&text))
-            .unwrap_or_default();
+        let mut blocks = Vec::new();
+        let mut pending_notice = None;
+        if let Some(path) = path.as_deref() {
+            match document::load(path) {
+                Ok(text) => blocks = markdown::parse(&text),
+                Err(error) => pending_notice = Some(error_message(path, error)),
+            }
+        }
 
         let state = AppState {
             mode: Mode::ReadOnly,
             blocks,
+            pending_notice,
         };
 
         cx.spawn(async move |cx| {
@@ -58,4 +65,17 @@ pub fn run() {
         })
         .detach();
     });
+}
+
+/// Turns a load failure into the message CA-05.1–CA-05.3 expect: it names
+/// the file and states the cause.
+fn error_message(path: &str, error: document::LoadError) -> String {
+    match error {
+        document::LoadError::NotFound => format!("No se encontró «{path}»."),
+        document::LoadError::PermissionDenied => {
+            format!("No se pudo leer «{path}»: no hay permiso para leerlo.")
+        }
+        document::LoadError::NotText => format!("«{path}» no es un archivo de texto."),
+        document::LoadError::Unreadable => format!("No se pudo leer «{path}»."),
+    }
 }

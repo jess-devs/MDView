@@ -227,3 +227,34 @@ AD-11 funciona de verdad y no solo al arrancar.
 
 **Estado de la historia:** verificada. Los tres criterios pasan por
 observación directa.
+
+---
+
+## HU-05 — Enterarme de que el archivo no se puede mostrar
+
+Verificado el 2026-08-23. Datos de prueba, todos en `pruebas/` y borrados al
+cerrar la historia: una ruta inexistente (sin archivo que crear), una imagen
+PNG de 10×10 guardada con extensión `.md`, y un archivo de texto con una
+regla de acceso `icacls /deny` para el usuario actual. La regla de acceso se
+retiró (`icacls /remove:d`) y se comprobó que el archivo quedó con los
+mismos permisos heredados que tenía antes de aplicarla.
+
+| Criterio | Resultado | Evidencia |
+| --- | --- | --- |
+| CA-05.1 | pasa | `capturas/ca-05.1-05.5-no-existe.png`. Aviso: «No se encontró «...\no-existe.md».», sin mostrar documento. |
+| CA-05.2 | pasa | `capturas/ca-05.2-05.5-no-es-texto.png`. Aviso: «...\imagen-como-md.md» no es un archivo de texto.», sin mostrar documento. |
+| CA-05.3 | pasa | `capturas/ca-05.3-05.5-sin-permiso.png`. Aviso: «No se pudo leer «...\sin-permiso.md»: no hay permiso para leerlo.», sin mostrar documento. |
+| CA-05.4 | pasa | `capturas/ca-05.4-aviso-desaparecido.png`, tomada más de 5 s después de la anterior sin tocar nada: el aviso ya no está. |
+| CA-05.5 | pasa | En los tres casos, `Get-Process` reportó `Responding: True` justo después de cada lanzamiento; la aplicación no terminó ni dejó de responder en ningún caso. |
+
+**Nota de proceso.** El aviso no aparecía en el primer intento, aunque el
+código compilaba y no fallaba: `Root` (el componente raíz que ya se usaba
+desde HU-01) no pinta las notificaciones por sí solo —`impl Render for
+Root` no incluye esa capa—. Hubo que componerla a mano llamando a
+`Root::render_notification_layer(window, cx)` desde `DocumentView::render` y
+añadir su resultado como hijo. Sin ese paso, `window.push_notification(...)`
+actualiza el estado pero nada lo pinta. Registrado en AD-12, junto con la
+clasificación de errores (`document::LoadError`) y la elección de mensaje.
+
+**Estado de la historia:** verificada. Los cinco criterios pasan por
+observación directa.

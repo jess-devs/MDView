@@ -3,6 +3,7 @@
 
 use gpui::*;
 use gpui_component::{
+    notification::Notification,
     scroll::{ScrollableElement, ScrollbarAxis},
     ActiveTheme, *,
 };
@@ -33,6 +34,10 @@ impl DocumentView {
 
 impl Render for DocumentView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        if let Some(message) = self.state.pending_notice.take() {
+            window.push_notification(Notification::error(message), cx);
+        }
+
         let available = f32::from(window.viewport_size().width) - HORIZONTAL_PADDING;
         let column_width = available.min(READING_WIDTH).max(0.0);
 
@@ -43,14 +48,24 @@ impl Render for DocumentView {
             column = column.child(render_block(block, &mut code_index, window, cx));
         }
 
-        div().size_full().overflow_y_scrollbar().child(
-            div()
-                .flex()
-                .w_full()
-                .justify_center()
-                .p_8()
-                .child(column),
-        )
+        // `Root` does not render notifications/dialogs/sheets on its own;
+        // the top-level view is expected to composite them in. Without this,
+        // `window.push_notification(...)` above updates state but nothing
+        // ever draws it.
+        div()
+            .relative()
+            .size_full()
+            .child(
+                div().size_full().overflow_y_scrollbar().child(
+                    div()
+                        .flex()
+                        .w_full()
+                        .justify_center()
+                        .p_8()
+                        .child(column),
+                ),
+            )
+            .children(Root::render_notification_layer(window, cx))
     }
 }
 
