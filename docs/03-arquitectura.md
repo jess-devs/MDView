@@ -68,3 +68,4 @@ que le faltan entradas es peor que no tener índice.
 | AD-08 | Ancho máximo de lectura: 720 px | `features/ver-un-documento/decisiones.md` | activa |
 | AD-09 | Valores tipográficos y visuales de HU-02 (tamaños, marcadores, cita, tabla, código en línea) | `features/ver-un-documento/decisiones.md` | activa |
 | AD-10 | Scroll horizontal de bloques de código: `ScrollHandle` propio por bloque, no `overflow_x_scrollbar()` | `features/ver-un-documento/decisiones.md` | activa |
+| AD-11 | Detectar el tema con `window.appearance()` de GPUI, con resincronía en caliente | `features/ver-un-documento/decisiones.md` | activa |

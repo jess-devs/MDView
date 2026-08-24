@@ -130,7 +130,8 @@ tema claro u oscuro de mi Windows, para que no me deslumbre al abrirse de noche.
    siguen siendo legibles: ningún texto se muestra del mismo color que el fondo
    sobre el que está.
 
-**Estado.** pendiente
+**Estado.** verificada. Los tres criterios pasan por observación; el detalle
+está en `docs/04-calidad.md`.
 
 ---
 

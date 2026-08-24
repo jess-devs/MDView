@@ -453,15 +453,69 @@ Estado: activa
 
 ---
 
+## AD-11 — Detectar el tema con `window.appearance()` de GPUI, no leyendo el registro de Windows
+
+Fecha: 2026-08-23
+
+**Contexto.** RF-18 exige adoptar el tema claro u oscuro de Windows al
+arrancar. `plan.md` dejaba anotados dos caminos previsibles: leer la
+configuración del sistema directamente (registro de Windows,
+`AppsUseLightTheme`) o usar lo que expusieran GPUI/`gpui-component`. Además,
+al verificar HU-02 se observó que la aplicación ya arrancaba en oscuro sin
+que se hubiera escrito código de tema, lo que hacía sospechar que
+`gpui-component` ya resolvía esto solo.
+
+**Investigación.** Se leyó el código real de `gpui-component` v0.5.1:
+`gpui_component::init(cx)` llama a `Theme::sync_system_appearance(None, cx)`,
+que internamente usa `cx.window_appearance()` de GPUI —una API nativa de la
+plataforma, no una lectura manual del registro—. Eso explica el
+comportamiento ya observado en HU-02. Sin embargo, esa llamada ocurre una
+sola vez, **antes de que exista ninguna ventana** (en `Application::run`,
+antes de `cx.open_window`), así que depende de qué valor devuelva
+`cx.window_appearance()` sin ventana todavía; y no hay ninguna suscripción a
+cambios de tema en caliente por defecto.
+
+**Alternativas consideradas.**
+
+- *Leer `AppsUseLightTheme` del registro de Windows directamente.* Rechazada:
+  `gpui-component` ya resuelve la detección inicial a través de una API de
+  plataforma de GPUI, más portable que leer una clave de registro específica
+  de Windows a mano, y evita duplicar lo que la dependencia ya hace.
+- *Confiar en la sincronización única de `gpui_component::init` sin tocar
+  nada más.* Rechazada: no hay evidencia de que se actualice si el usuario
+  cambia el tema de Windows mientras MDView está abierto, y la sincronización
+  inicial ocurre antes de que la ventana exista.
+- *Volver a sincronizar el tema contra la ventana real al abrirla, y
+  suscribirse a cambios en caliente con `window.observe_window_appearance`.*
+  Elegida.
+
+**Decisión.** En el cierre de `cx.open_window` (`app.rs`), tras crear la
+ventana, se llama a `Theme::sync_system_appearance(Some(window), cx)` para
+resincronizar contra la ventana ya real, y se registra
+`window.observe_window_appearance(...)` para repetir esa sincronización cada
+vez que el sistema operativo avise de un cambio de apariencia, mientras la
+aplicación esté abierta.
+
+**Consecuencias.**
+
+- RF-18 solo exige adoptar el tema **al arrancar**; el añadido de
+  seguimiento en caliente es más de lo que pide el requisito, pero es una
+  línea de más sobre una suscripción que GPUI ya ofrece, y se verificó que
+  funciona: cambiar el tema de Windows con MDView ya abierto lo actualiza sin
+  reiniciar (ver `04-calidad.md`, HU-04).
+- Si `gpui-component` cambiara su propio `init` para suscribirse sola en el
+  futuro, esta resincronización manual sería redundante pero inofensiva; se
+  revisaría entonces.
+
+Estado: activa
+
+---
+
 ## Decisiones que ya se sabe que habrá que tomar
 
 No son decisiones: son avisos de dónde van a aparecer, para que no se tomen por
 descuido y sin dejar rastro.
 
-- **Cómo se detecta el tema claro u oscuro de Windows** (RF-18, HU-04). Los dos
-  caminos previsibles son leer la configuración del sistema directamente o usar
-  lo que expongan GPUI o `gpui-component`. Se decide al implementar HU-04. No
-  bloquea HU-01, HU-02 ni HU-03.
 - **Qué biblioteca analiza el YAML del front matter** (RF-12). Pertenece a la
   feature `contenido-enriquecido`; no bloquea nada de esta.
 - **Cómo se abren los enlaces externos** (RF-15). El crate `open`, versión 5.4.1

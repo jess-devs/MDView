@@ -186,3 +186,44 @@ AD-10 para que nadie lo confunda con un bug si lo redescubre.
 
 **Estado de la historia:** verificada. Los seis criterios pasan por
 observación directa.
+
+---
+
+## HU-04 — Ver el documento con el tema del sistema
+
+Verificado el 2026-08-23. **Requirió cambiar el tema de Windows.** Tema
+original de la máquina antes de tocar nada: **oscuro**
+(`AppsUseLightTheme=0`, `SystemUsesLightTheme=0` en
+`HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize`,
+comprobado antes del primer cambio). Se cambió a claro para CA-04.1, y se
+devolvió a oscuro al terminar — confirmado leyendo esas mismas claves después
+de restaurarlas y con una captura del propio MDView ya de vuelta en oscuro.
+**El tema de Windows de esta máquina quedó exactamente como estaba antes de
+empezar.**
+
+| Criterio | Resultado | Evidencia |
+| --- | --- | --- |
+| CA-04.1 | pasa | `capturas/ca-04.1-04.3-claro-encabezados.png` y las otras dos `ca-04.1-...png`. Con Windows en modo claro, fondo claro y texto oscuro. |
+| CA-04.2 | pasa | `capturas/ca-04.2-04.3-oscuro-encabezados.png` y las otras dos `ca-04.2-...png`. Con Windows en modo oscuro, fondo oscuro y texto claro. |
+| CA-04.3 | pasa | Las seis capturas anteriores cubren todos los elementos verificados en HU-02 y HU-03 (encabezados 1-6, énfasis/negrita, listas anidadas, lista ordenada, lista de tareas, cita, regla horizontal, código en línea, bloque de código, tabla, tachado) en ambos temas. Ningún texto se confunde con su fondo en ninguno de los dos. |
+
+**Nota de proceso — la sospecha de HU-02 se confirmó, con matiz.** Se leyó el
+código de `gpui-component`: `gpui_component::init(cx)` ya sincroniza el tema
+una vez con `cx.window_appearance()` (una API de plataforma de GPUI, no una
+lectura manual del registro), lo que explica que la app ya arrancara en
+oscuro en HU-02 sin código propio de tema. Pero esa sincronización ocurre
+**antes de que exista la ventana** y no se repite si el usuario cambia el
+tema de Windows con la app ya abierta. Se añadió una resincronización contra
+la ventana real al abrirla, más una suscripción a cambios de tema en
+caliente (`window.observe_window_appearance`). Registrado en AD-11.
+
+**Verificación extra, más allá de la letra de los CA.** Con MDView ya
+abierto (sin reiniciarlo), se cambió el tema de Windows de oscuro a claro y
+se comprobó que la ventana ya abierta se actualizó sola, sin relanzar la
+aplicación: `capturas/ca-04.1-04.3-claro-listas-cita-cambio-en-vivo.png` es
+precisamente esa captura, tomada inmediatamente después del cambio en
+caliente. No lo pedía ningún criterio, pero confirma que la suscripción de
+AD-11 funciona de verdad y no solo al arrancar.
+
+**Estado de la historia:** verificada. Los tres criterios pasan por
+observación directa.

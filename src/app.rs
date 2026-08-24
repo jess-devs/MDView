@@ -4,7 +4,7 @@
 use std::env;
 
 use gpui::{Application, AppContext, WindowOptions};
-use gpui_component::Root;
+use gpui_component::{Root, Theme};
 
 use crate::{document, markdown, render::DocumentView};
 
@@ -40,6 +40,17 @@ pub fn run() {
 
         cx.spawn(async move |cx| {
             cx.open_window(WindowOptions::default(), |window, cx| {
+                // gpui_component::init(cx) already synced once, before this
+                // window existed. Re-sync now against the real window (per
+                // AD-11), and keep syncing if the user changes the Windows
+                // theme while MDView is open.
+                Theme::sync_system_appearance(Some(window), cx);
+                window
+                    .observe_window_appearance(|window, cx| {
+                        Theme::sync_system_appearance(Some(window), cx);
+                    })
+                    .detach();
+
                 let view = cx.new(|_| DocumentView::new(state));
                 cx.new(|cx| Root::new(view, window, cx))
             })
