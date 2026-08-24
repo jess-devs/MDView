@@ -203,7 +203,8 @@ delante de algo que parece averiado.
 3. CA-07.3 — Esa ventana indica, además, al menos una forma concreta de pedirle
    que abra un archivo.
 
-**Estado.** pendiente
+**Estado.** verificada. Los tres criterios pasan por observación; el detalle
+está en `docs/04-calidad.md`.
 
 ---
 

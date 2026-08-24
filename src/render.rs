@@ -10,7 +10,7 @@ use gpui_component::{
 
 use crate::{
     app::AppState,
-    markdown::{Block, ListItem, Span},
+    markdown::{Block, ListItem, Span, SpanStyle},
 };
 
 /// Maximum reading width, per AD-08.
@@ -43,9 +43,13 @@ impl Render for DocumentView {
 
         let mut column = div().v_flex().gap_4().w(px(column_width));
 
-        let mut code_index = 0;
-        for block in &self.state.blocks {
-            column = column.child(render_block(block, &mut code_index, window, cx));
+        if self.state.no_path_given {
+            column = column.child(render_empty_state(cx));
+        } else {
+            let mut code_index = 0;
+            for block in &self.state.blocks {
+                column = column.child(render_block(block, &mut code_index, window, cx));
+            }
         }
 
         // `Root` does not render notifications/dialogs/sheets on its own;
@@ -67,6 +71,46 @@ impl Render for DocumentView {
             )
             .children(Root::render_notification_layer(window, cx))
     }
+}
+
+/// The window shown when MDView is launched without a file (RF-19).
+fn render_empty_state(cx: &App) -> impl IntoElement {
+    div()
+        .v_flex()
+        .gap_4()
+        .w_full()
+        .child(
+            div()
+                .whitespace_normal()
+                .text_size(px(heading_size(1)))
+                .child(render_spans(
+                    &[Span { text: "MDView".to_string(), style: SpanStyle::default() }],
+                    true,
+                    cx,
+                )),
+        )
+        .child(
+            div().w_full().whitespace_normal().text_size(px(BODY_SIZE)).child(render_spans(
+                &[Span {
+                    text: "MDView muestra archivos Markdown (.md) con formato, sin necesidad \
+                           de abrir un editor de código."
+                        .to_string(),
+                    style: SpanStyle::default(),
+                }],
+                false,
+                cx,
+            )),
+        )
+        .child(
+            div().w_full().whitespace_normal().text_size(px(BODY_SIZE)).child(render_spans(
+                &[
+                    Span { text: "Para abrir uno, indícale su ruta al iniciarlo: ".to_string(), style: SpanStyle::default() },
+                    Span { text: "mdview ruta\\al\\archivo.md".to_string(), style: SpanStyle { code: true, ..Default::default() } },
+                ],
+                false,
+                cx,
+            )),
+        )
 }
 
 fn render_block(block: &Block, code_index: &mut usize, window: &mut Window, cx: &mut App) -> AnyElement {

@@ -258,3 +258,27 @@ clasificación de errores (`document::LoadError`) y la elección de mensaje.
 
 **Estado de la historia:** verificada. Los cinco criterios pasan por
 observación directa.
+
+---
+
+## HU-07 — Entender qué es esto si lo abro sin un archivo
+
+Verificado el 2026-08-23. Sin datos de prueba: el propio caso es invocar
+`mdview.exe` sin argumentos.
+
+| Criterio | Resultado | Evidencia |
+| --- | --- | --- |
+| CA-07.1 | pasa | `capturas/ca-07.1-07.2-07.3-estado-vacio.png`. La ventana aparece con contenido visible, no queda en blanco ni deja de aparecer nada. |
+| CA-07.2 | pasa | Misma captura: «MDView muestra archivos Markdown (.md) con formato, sin necesidad de abrir un editor de código.». |
+| CA-07.3 | pasa | Misma captura: «Para abrir uno, indícale su ruta al iniciarlo: `mdview ruta\al\archivo.md`», una forma concreta y hoy realmente disponible (RF-02, doble clic, pertenece a la feature `integracion-con-windows` y no existe todavía; no se prometió). |
+
+**Nota de proceso.** Se distinguió explícitamente "sin argumento" (este
+caso, `AppState.no_path_given`) de "argumento que falla" (HU-05,
+`pending_notice`): antes de este cambio ambos casos dejaban `blocks` vacío
+de la misma forma, y mostrar el texto de bienvenida detrás de un aviso de
+error de HU-05 habría sido una respuesta que no venía a cuento —el usuario sí
+indicó una ruta, solo que no funcionó—. Los dos estados ahora son
+independientes en `AppState` y no se pisan.
+
+**Estado de la historia:** verificada. Los tres criterios pasan por
+observación directa.

@@ -21,6 +21,10 @@ pub struct AppState {
     /// Set when the requested file could not be shown (RF-17). `render`
     /// pushes it as a notification once, then clears it.
     pub pending_notice: Option<String>,
+    /// No path was given at all (RF-19): show the onboarding text instead of
+    /// a silently blank window. Distinct from a load error, which also
+    /// leaves `blocks` empty but must not show onboarding text over it.
+    pub no_path_given: bool,
 }
 
 pub fn run() {
@@ -32,17 +36,19 @@ pub fn run() {
 
         let mut blocks = Vec::new();
         let mut pending_notice = None;
-        if let Some(path) = path.as_deref() {
-            match document::load(path) {
+        match path.as_deref() {
+            Some(path) => match document::load(path) {
                 Ok(text) => blocks = markdown::parse(&text),
                 Err(error) => pending_notice = Some(error_message(path, error)),
-            }
+            },
+            None => {}
         }
 
         let state = AppState {
             mode: Mode::ReadOnly,
             blocks,
             pending_notice,
+            no_path_given: path.is_none(),
         };
 
         cx.spawn(async move |cx| {
