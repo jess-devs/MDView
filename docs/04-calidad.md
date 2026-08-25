@@ -385,7 +385,8 @@ el umbral de RNF-01 — esa elección es del usuario y no se toma aquí. No se
 registra como `pasa` por estar cerca: la letra del criterio exige menos de
 1 s **en los tres**.
 
-**Estado de la historia:** verificación ejecutada, CA-06.1 **no pasa**. La
+**Estado de la historia** (al cerrar la fase 2; lo continua la fase 3):
+verificación ejecutada, CA-06.1 **no pasa**. La
 historia queda abierta a la espera de la decisión sobre el pendiente. Los
 datos de prueba (`pruebas/documento-50kb.md` y `pruebas/timing.txt`) se
 borran ya: las cifras están copiadas arriba y el archivo de 50 KB es
