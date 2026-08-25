@@ -32,7 +32,8 @@ posterior.
 4. CA-01.4 — El encabezado que va después del párrafo con el enlace, y todo lo
    que le sigue, se siguen mostrando.
 
-**Estado.** pendiente
+**Estado.** verificada. Los cuatro criterios pasan por observación; el detalle
+está en `docs/04-calidad.md`.
 
 ---
 

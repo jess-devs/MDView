@@ -98,7 +98,7 @@ fn render_empty_state(cx: &App) -> impl IntoElement {
                 .whitespace_normal()
                 .text_size(px(heading_size(1)))
                 .child(render_spans(
-                    &[Span { text: "MDView".to_string(), style: SpanStyle::default() }],
+                    &[Span { text: "MDView".to_string(), style: SpanStyle::default(), url: None }],
                     true,
                     cx,
                 )),
@@ -110,6 +110,7 @@ fn render_empty_state(cx: &App) -> impl IntoElement {
                            de abrir un editor de código."
                         .to_string(),
                     style: SpanStyle::default(),
+                    url: None,
                 }],
                 false,
                 cx,
@@ -118,8 +119,8 @@ fn render_empty_state(cx: &App) -> impl IntoElement {
         .child(
             div().w_full().whitespace_normal().text_size(px(BODY_SIZE)).child(render_spans(
                 &[
-                    Span { text: "Para abrir uno, indícale su ruta al iniciarlo: ".to_string(), style: SpanStyle::default() },
-                    Span { text: "mdview ruta\\al\\archivo.md".to_string(), style: SpanStyle { code: true, ..Default::default() } },
+                    Span { text: "Para abrir uno, indícale su ruta al iniciarlo: ".to_string(), style: SpanStyle::default(), url: None },
+                    Span { text: "mdview ruta\\al\\archivo.md".to_string(), style: SpanStyle { code: true, ..Default::default() }, url: None },
                 ],
                 false,
                 cx,
@@ -311,6 +312,14 @@ fn render_spans(spans: &[Span], bold: bool, cx: &App) -> StyledText {
             highlight.strikethrough = Some(StrikethroughStyle {
                 thickness: px(1.0),
                 color: None,
+            });
+        }
+        if span.url.is_some() {
+            highlight.color = Some(theme.link);
+            highlight.underline = Some(UnderlineStyle {
+                thickness: px(1.0),
+                color: None,
+                wavy: false,
             });
         }
 

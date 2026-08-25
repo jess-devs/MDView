@@ -72,3 +72,6 @@ que le faltan entradas es peor que no tener índice.
 | AD-12 | Avisos de error con `Notification` de `gpui-component`; `document::LoadError` clasifica, `app` redacta el mensaje | `features/ver-un-documento/decisiones.md` | activa |
 | AD-13 | Perfil de release con LTO, `codegen-units = 1` y `strip` (~16% más rápido en caliente, ~2.6× más lento de compilar) | `features/ver-un-documento/decisiones.md` | activa |
 | AD-14 | Umbral de RNF-01 renegociado de 1 s a 1,2 s en arranque en frío (CA-06.1 fallaba por 55 ms) | `features/ver-un-documento/decisiones.md` | activa |
+| AD-15 | Arreglar la causa compartida de la pérdida de contenido en `parse_blocks` (enlaces, imágenes y bloques HTML) | `features/enlaces-e-imagenes/decisiones.md` | activa |
+| AD-16 | Representar el enlace como un campo `url` en `Span`, no como un tipo nuevo | `features/enlaces-e-imagenes/decisiones.md` | activa |
+| AD-17 | Primeros tests del proyecto: módulo `#[cfg(test)]` junto al código, sin framework | `features/enlaces-e-imagenes/decisiones.md` | activa |

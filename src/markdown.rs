@@ -19,6 +19,10 @@ pub struct SpanStyle {
 pub struct Span {
     pub text: String,
     pub style: SpanStyle,
+    /// The link destination this span is part of, if any (RF-08.2). `render`
+    /// decides how to make it look distinguishable; this module only carries
+    /// the data.
+    pub url: Option<String>,
 }
 
 pub struct ListItem {
@@ -118,6 +122,18 @@ fn parse_blocks(events: &mut Events) -> Vec<Block> {
                         }
                         blocks.push(Block::CodeBlock(code));
                     }
+                    Tag::HtmlBlock => {
+                        // Raw HTML has no element-tree representation yet
+                        // (RF-13, a later feature): consume it so its `End`
+                        // doesn't get mistaken for an enclosing caller's, and
+                        // move on without producing a block.
+                        loop {
+                            match events.next() {
+                                Some(End(TagEnd::HtmlBlock)) | None => break,
+                                _ => {}
+                            }
+                        }
+                    }
                     _ => {}
                 }
             }
@@ -171,6 +187,11 @@ fn parse_inline(events: &mut Events) -> Vec<Span> {
 
     let mut spans = Vec::new();
     let mut style = SpanStyle::default();
+    // The URL of the link this text is currently inside, if any. Images are
+    // consumed the same way as links so their `End` doesn't leak out (see
+    // `parse_blocks`), but they don't carry a URL: showing the image itself
+    // is a later feature, so their alt text falls back to plain text.
+    let mut link: Option<String> = None;
 
     loop {
         match events.peek() {
@@ -178,24 +199,29 @@ fn parse_inline(events: &mut Events) -> Vec<Span> {
             Some(Start(Tag::Emphasis)) | Some(End(TagEnd::Emphasis)) => {}
             Some(Start(Tag::Strong)) | Some(End(TagEnd::Strong)) => {}
             Some(Start(Tag::Strikethrough)) | Some(End(TagEnd::Strikethrough)) => {}
+            Some(Start(Tag::Link { .. })) | Some(End(TagEnd::Link)) => {}
+            Some(Start(Tag::Image { .. })) | Some(End(TagEnd::Image)) => {}
             _ => break,
         }
 
         match events.next().unwrap() {
-            Text(t) => spans.push(Span { text: t.into_string(), style: style.clone() }),
+            Text(t) => spans.push(Span { text: t.into_string(), style: style.clone(), url: link.clone() }),
             Code(t) => {
                 let mut s = style.clone();
                 s.code = true;
-                spans.push(Span { text: t.into_string(), style: s });
+                spans.push(Span { text: t.into_string(), style: s, url: link.clone() });
             }
-            SoftBreak => spans.push(Span { text: " ".to_string(), style: style.clone() }),
-            HardBreak => spans.push(Span { text: "\n".to_string(), style: style.clone() }),
+            SoftBreak => spans.push(Span { text: " ".to_string(), style: style.clone(), url: link.clone() }),
+            HardBreak => spans.push(Span { text: "\n".to_string(), style: style.clone(), url: link.clone() }),
             Start(Tag::Emphasis) => style.italic = true,
             End(TagEnd::Emphasis) => style.italic = false,
             Start(Tag::Strong) => style.bold = true,
             End(TagEnd::Strong) => style.bold = false,
             Start(Tag::Strikethrough) => style.strikethrough = true,
             End(TagEnd::Strikethrough) => style.strikethrough = false,
+            Start(Tag::Link { dest_url, .. }) => link = Some(dest_url.into_string()),
+            End(TagEnd::Link) => link = None,
+            Start(Tag::Image { .. }) | End(TagEnd::Image) => {}
             _ => unreachable!(),
         }
     }
@@ -256,4 +282,53 @@ fn parse_table_cells(events: &mut Events) -> Vec<Vec<Span>> {
         consume_end(events, |e| matches!(e, TagEnd::TableCell));
     }
     cells
+}
+
+// Regression coverage for the bug in "Defecto observado antes de empezar"
+// (docs/features/enlaces-e-imagenes/plan.md): `parse_blocks` broke out of its
+// loop on ANY `End` event, including ones that belonged to a Link, Image or
+// HtmlBlock rather than to the caller, silently discarding the rest of the
+// document.
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn heading_texts(blocks: &[Block]) -> Vec<String> {
+        blocks
+            .iter()
+            .filter_map(|b| match b {
+                Block::Heading(_, spans) => Some(spans.iter().map(|s| s.text.as_str()).collect()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn html_block_does_not_truncate_the_document() {
+        let source = "# uno\n\n<div align=\"center\">hola</div>\n\n# dos\n";
+        assert_eq!(heading_texts(&parse(source)), vec!["uno".to_string(), "dos".to_string()]);
+    }
+
+    #[test]
+    fn link_and_image_stay_in_one_paragraph_with_the_rest_of_the_text() {
+        let source = "un [enlace](https://x.dev) y ![alt](img/a.png) final\n";
+        let blocks = parse(source);
+
+        let paragraphs: Vec<&Vec<Span>> = blocks
+            .iter()
+            .filter_map(|b| match b {
+                Block::Paragraph(spans) => Some(spans),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(paragraphs.len(), 1, "el enlace no debe partir el párrafo en dos");
+
+        let spans = paragraphs[0];
+        let text: String = spans.iter().map(|s| s.text.as_str()).collect();
+        assert_eq!(text, "un enlace y alt final");
+        assert!(!text.contains("https://x.dev"), "la URL no debe aparecer en el cuerpo del documento");
+
+        let link_span = spans.iter().find(|s| s.text == "enlace").expect("falta el texto del enlace");
+        assert_eq!(link_span.url.as_deref(), Some("https://x.dev"));
+    }
 }

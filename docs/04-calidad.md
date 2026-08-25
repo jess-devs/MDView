@@ -419,3 +419,55 @@ tomaron. Un dato que pasa un listón alto pasa el bajo.
 
 **Estado de la historia:** verificada. Con ella, las siete historias de la
 feature `ver-un-documento` quedan verificadas.
+
+---
+
+## HU-01 (enlaces-e-imagenes) — Leer un documento con enlaces sin perder nada
+
+Verificado el 2026-08-24. La construcción y la observación en pantalla las hizo
+la sesión que implementó la historia; esta sesión revisó el código, ejecutó los
+tests por su cuenta y comprobó los criterios contra las capturas. Las capturas
+están en `pruebas/` (no se versionan, ver `.gitignore`).
+
+Documento de prueba: `pruebas/hu-01-enlaces.md`, un párrafo con la forma «texto
+antes, enlace, texto después» seguido de un encabezado y otro párrafo.
+
+| Criterio | Resultado | Evidencia |
+| --- | --- | --- |
+| CA-01.1 — Las tres partes del párrafo, en orden y en un mismo párrafo | pasa | `ca-01-captura.png`: «Este párrafo tiene texto antes, luego un enlace de ejemplo y texto después que debe seguir viéndose.», en una sola línea de párrafo |
+| CA-01.2 — Texto del enlace distinguible del que lo rodea | pasa | `ca-01-zoom.png`: «enlace de ejemplo» va subrayado; el resto del párrafo no |
+| CA-01.3 — La URL no aparece en el cuerpo del documento | pasa | En la captura no aparece `https://example.com/ruta` por ninguna parte |
+| CA-01.4 — El encabezado posterior y lo que le sigue se siguen mostrando | pasa | `ca-01-captura.png`: «Encabezado posterior» y su párrafo se ven bajo el enlace |
+| RNF-03.1 — Windows 11 de 64 bits | pasa | La aplicación se ejecutó y se observó en esa plataforma |
+
+**Prueba de regresión.** `cargo test` ejecuta los dos casos que `plan.md`
+documentó como defecto observado. Ejecutados por esta sesión:
+
+```
+test markdown::tests::html_block_does_not_truncate_the_document ... ok
+test markdown::tests::link_and_image_stay_in_one_paragraph_with_the_rest_of_the_text ... ok
+test result: ok. 2 passed; 0 failed
+```
+
+Son los primeros tests del proyecto (AD-17). No sustituyen a la observación: la
+comprobación de los cuatro criterios es la de la tabla, no la de arriba.
+
+**Dos cosas que no son criterio y conviene no perder.**
+
+- El color del enlace se fija con `theme.link`, pero en el tema oscuro esa
+  cifra es casi indistinguible del texto normal: lo que hace visible el enlace
+  en la captura es el subrayado. CA-01.2 admite «por color, por subrayado o por
+  ambos», así que pasa. Si algún día se quita el subrayado, el criterio dejaría
+  de pasar sin que nadie tocara el color.
+- El bloque HTML ya no trunca el documento, y el test lo cubre. **No se declara
+  verificado**: RF-13 pertenece a `front-matter-y-html` y allí se observará. Es
+  el efecto colateral que AD-15 anticipaba.
+
+**Medida informal de arranque (no es verificación).** 1941 ms sobre el binario
+de **depuración**, que es el único que existe ahora mismo. No es comparable con
+los ~610 ms en caliente de AD-13 ni con las cifras de CA-06.1, que se tomaron
+sobre el perfil de release con LTO. Como señal de desvío para RNF-01.2 no sirve:
+la próxima medida informal debe tomarse sobre release o no tomarse.
+
+**Estado de la historia:** verificada. Los cuatro criterios pasan por
+observación.
