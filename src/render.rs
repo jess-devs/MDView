@@ -1,6 +1,8 @@
 //! Translates the element tree into on-screen components, and the theme.
 //! Owns no knowledge of the filesystem or of Markdown syntax.
 
+use std::ops::Range;
+
 use gpui::*;
 use gpui_component::{
     notification::Notification,
@@ -61,8 +63,9 @@ impl Render for DocumentView {
             column = column.child(render_empty_state(cx));
         } else {
             let mut code_index = 0;
+            let mut text_index = 0;
             for block in &self.state.blocks {
-                column = column.child(render_block(block, &mut code_index, window, cx));
+                column = column.child(render_block(block, &mut code_index, &mut text_index, window, cx));
             }
         }
 
@@ -101,7 +104,7 @@ fn render_empty_state(cx: &App) -> impl IntoElement {
                     &[Span { text: "MDView".to_string(), style: SpanStyle::default(), url: None }],
                     true,
                     cx,
-                )),
+                ).0),
         )
         .child(
             div().w_full().whitespace_normal().text_size(px(BODY_SIZE)).child(render_spans(
@@ -114,7 +117,7 @@ fn render_empty_state(cx: &App) -> impl IntoElement {
                 }],
                 false,
                 cx,
-            )),
+            ).0),
         )
         .child(
             div().w_full().whitespace_normal().text_size(px(BODY_SIZE)).child(render_spans(
@@ -124,24 +127,38 @@ fn render_empty_state(cx: &App) -> impl IntoElement {
                 ],
                 false,
                 cx,
-            )),
+            ).0),
         )
 }
 
-fn render_block(block: &Block, code_index: &mut usize, window: &mut Window, cx: &mut App) -> AnyElement {
+fn render_block(
+    block: &Block,
+    code_index: &mut usize,
+    text_index: &mut usize,
+    window: &mut Window,
+    cx: &mut App,
+) -> AnyElement {
     match block {
-        Block::Heading(level, spans) => div()
-            .w_full()
-            .whitespace_normal()
-            .text_size(px(heading_size(*level)))
-            .child(render_spans(spans, true, cx))
-            .into_any_element(),
-        Block::Paragraph(spans) => div()
-            .w_full()
-            .whitespace_normal()
-            .text_size(px(BODY_SIZE))
-            .child(render_spans(spans, false, cx))
-            .into_any_element(),
+        Block::Heading(level, spans) => {
+            let id = *text_index;
+            *text_index += 1;
+            div()
+                .w_full()
+                .whitespace_normal()
+                .text_size(px(heading_size(*level)))
+                .child(render_text(spans, true, ("text-block", id), cx))
+                .into_any_element()
+        }
+        Block::Paragraph(spans) => {
+            let id = *text_index;
+            *text_index += 1;
+            div()
+                .w_full()
+                .whitespace_normal()
+                .text_size(px(BODY_SIZE))
+                .child(render_text(spans, false, ("text-block", id), cx))
+                .into_any_element()
+        }
         Block::ThematicBreak => div().w_full().h(px(1.0)).bg(cx.theme().border).into_any_element(),
         Block::Quote(blocks) => {
             let mut quote = div()
@@ -152,12 +169,12 @@ fn render_block(block: &Block, code_index: &mut usize, window: &mut Window, cx: 
                 .border_l_2()
                 .border_color(cx.theme().border);
             for b in blocks {
-                quote = quote.child(render_block(b, code_index, window, cx));
+                quote = quote.child(render_block(b, code_index, text_index, window, cx));
             }
             quote.into_any_element()
         }
         Block::List { ordered, start, items } => {
-            render_list(*ordered, *start, items, code_index, window, cx).into_any_element()
+            render_list(*ordered, *start, items, code_index, text_index, window, cx).into_any_element()
         }
         Block::Table { header, rows } => render_table(header, rows, cx).into_any_element(),
         Block::CodeBlock(text) => {
@@ -213,6 +230,7 @@ fn render_list(
     start: u64,
     items: &[ListItem],
     code_index: &mut usize,
+    text_index: &mut usize,
     window: &mut Window,
     cx: &mut App,
 ) -> impl IntoElement {
@@ -228,7 +246,7 @@ fn render_list(
 
         let mut content = div().v_flex().gap_2().w_full();
         for block in &item.children {
-            content = content.child(render_block(block, code_index, window, cx));
+            content = content.child(render_block(block, code_index, text_index, window, cx));
         }
 
         list = list.child(
@@ -271,14 +289,17 @@ fn render_table_row(cells: &[Vec<Span>], is_header: bool, cx: &App) -> impl Into
             div()
                 .flex_1()
                 .whitespace_normal()
-                .child(render_spans(cell, is_header, cx)),
+                .child(render_spans(cell, is_header, cx).0),
         );
     }
 
     row
 }
 
-fn render_spans(spans: &[Span], bold: bool, cx: &App) -> StyledText {
+/// Builds the styled text for a run of spans, plus the byte range and URL of
+/// each span that is part of a link (RF-08.2), for callers that want to make
+/// those ranges clickable (RF-15.1).
+fn render_spans(spans: &[Span], bold: bool, cx: &App) -> (StyledText, Vec<(Range<usize>, String)>) {
     let theme = cx.theme();
     let base = TextStyle {
         color: theme.foreground,
@@ -290,10 +311,15 @@ fn render_spans(spans: &[Span], bold: bool, cx: &App) -> StyledText {
 
     let mut combined = String::new();
     let mut runs = Vec::new();
+    let mut links = Vec::new();
 
     for span in spans {
         let len = span.text.len();
+        let start = combined.len();
         combined.push_str(&span.text);
+        if let Some(url) = &span.url {
+            links.push((start..start + len, url.clone()));
+        }
 
         let mut style = base.clone();
         if span.style.code {
@@ -326,7 +352,27 @@ fn render_spans(spans: &[Span], bold: bool, cx: &App) -> StyledText {
         runs.push(style.highlight(highlight).to_run(len));
     }
 
-    StyledText::new(combined).with_runs(runs)
+    (StyledText::new(combined).with_runs(runs), links)
+}
+
+/// Renders a run of spans as clickable text when any of them carries a link
+/// (RF-15.1): activating one of those ranges hands the URL to `app`, which
+/// decides what "activate a link" means — `render` only knows how to detect
+/// a click and where the link's text sits in the combined string.
+fn render_text(spans: &[Span], bold: bool, id: impl Into<ElementId>, cx: &App) -> AnyElement {
+    let (styled, links) = render_spans(spans, bold, cx);
+    if links.is_empty() {
+        return styled.into_any_element();
+    }
+
+    let ranges: Vec<Range<usize>> = links.iter().map(|(range, _)| range.clone()).collect();
+    let urls: Vec<String> = links.into_iter().map(|(_, url)| url).collect();
+
+    InteractiveText::new(id, styled)
+        .on_click(ranges, move |ix, _window, _cx| {
+            crate::app::activate_link(&urls[ix]);
+        })
+        .into_any_element()
 }
 
 fn heading_size(level: u8) -> f32 {

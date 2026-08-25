@@ -75,3 +75,5 @@ que le faltan entradas es peor que no tener índice.
 | AD-15 | Arreglar la causa compartida de la pérdida de contenido en `parse_blocks` (enlaces, imágenes y bloques HTML) | `features/enlaces-e-imagenes/decisiones.md` | activa |
 | AD-16 | Representar el enlace como un campo `url` en `Span`, no como un tipo nuevo | `features/enlaces-e-imagenes/decisiones.md` | activa |
 | AD-17 | Primeros tests del proyecto: módulo `#[cfg(test)]` junto al código, sin framework | `features/enlaces-e-imagenes/decisiones.md` | activa |
+| AD-18 | Cómo se activa un enlace al pulsarlo: `InteractiveText` con un contador de identificadores por documento | `features/enlaces-e-imagenes/decisiones.md` | activa |
+| AD-19 | Con qué se abre un enlace externo: crate `open`, función `that_detached`, sin fijar versión exacta | `features/enlaces-e-imagenes/decisiones.md` | activa |

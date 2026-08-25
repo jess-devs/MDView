@@ -54,8 +54,16 @@ mano.
    sigue mostrando el mismo documento en la misma posición.
 4. CA-02.4 — Tras abrir el enlace, MDView sigue respondiendo: el documento se
    puede desplazar y la ventana se puede cerrar con normalidad.
+5. CA-02.5 — Un enlace `https` escrito dentro de la celda de una tabla se abre
+   igual que uno escrito en un párrafo.
 
-**Estado.** pendiente
+CA-02.5 se añadió el 2026-08-24, después de implementar los cuatro anteriores,
+al observarse que los enlaces de las celdas de una tabla se mostraban
+distinguibles pero no reaccionaban al clic. No amplía la historia: RF-15.1 dice
+«al activarse un enlace `http` o `https`» sin distinguir dónde está escrito, así
+que la lista de criterios estaba incompleta, no el requisito.
+
+**Estado.** en curso
 
 ---
 

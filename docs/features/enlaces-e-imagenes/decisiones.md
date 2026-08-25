@@ -1,6 +1,6 @@
 # Decisiones — enlaces-e-imagenes
 
-> Estado: en construcción, HU-01 implementada
+> Estado: en construcción, HU-01 y HU-02 implementadas
 > Última actualización: 2026-08-24
 > Modo: new-feature
 
@@ -170,17 +170,138 @@ Estado: activa
 
 ---
 
+## AD-18 — Cómo se activa un enlace al pulsarlo: `InteractiveText` con un contador de identificadores por documento
+
+Fecha: 2026-08-24
+
+**Contexto.** `StyledText`, lo que hoy pinta un párrafo o un encabezado, no
+reacciona a nada. En `gpui` 0.2.2 (`src/elements/text.rs`), `InteractiveText`
+envuelve un `StyledText` y añade `on_click(ranges: Vec<Range<usize>>, listener)`:
+el listener recibe el índice del rango pulsado, no la URL, así que hace falta
+emparejar cada rango con su URL en el mismo sitio donde ya se conocen los dos —
+`render_spans`, que ya recorre los `Span` para construir el texto combinado y
+sus estilos. `InteractiveText::new` además exige un `ElementId` único por
+instancia, para que `gpui` conserve su estado (qué rango está bajo el cursor)
+de un fotograma al siguiente.
+
+**Alternativas consideradas.**
+
+- *Derivar el id de un hash del contenido del bloque.* Rechazada: dos párrafos
+  con el mismo texto colisionarían, y ya existe en este mismo archivo un patrón
+  probado para esto — ver AD-10.
+- *Envolver siempre en `InteractiveText`, tenga o no enlaces el bloque.*
+  Rechazada: pagar el coste de hit-testing y de un `ElementId` por cada párrafo
+  del documento cuando la inmensa mayoría no tiene enlaces. `render_spans` ya
+  sabe, span a span, si hay alguna URL; comprobarlo antes de envolver es
+  gratis.
+- *Un contador global compartido entre bloques de código y bloques de texto.*
+  Considerada; descartada porque numeran dos cosas distintas —una clave de
+  `ScrollHandle`, un `ElementId` de clic— y compartir el contador haría que
+  tocar uno perturbara la numeración del otro sin que nada lo avisara. Dos
+  parámetros más en las firmas de `render_block`/`render_list` es el precio, y
+  es barato.
+- *Un contador `text_index: &mut usize`, hilvanado por `render_block` y
+  `render_list` exactamente como ya hace `code_index` para las `ScrollHandle`
+  de AD-10.* Elegida: mismo patrón ya en uso, sin inventar uno nuevo.
+
+**Decisión.** `render_spans` devuelve, junto al `StyledText`, la lista de pares
+`(rango de bytes, URL)` de los spans que forman parte de un enlace. Un nuevo
+`render_text` envuelve ese resultado en `InteractiveText` solo cuando esa lista
+no está vacía, con id `("text-block", n)`, `n` sacado de `text_index`. El
+listener del clic resuelve el rango pulsado a su URL y llama a
+`app::activate_link`.
+
+**Consecuencias.**
+
+- Las celdas de tabla (`render_table_row`) siguen llamando a `render_spans`
+  directamente y solo usan su mitad `StyledText`: un enlace dentro de una tabla
+  se ve distinguible (color y subrayado) pero no es pulsable todavía. Ningún
+  criterio de HU-02 lo exige —los documentos de prueba de `plan.md` no ponen
+  enlaces en tablas— pero queda como una carencia conocida, no registrada como
+  decisión porque cerrarla es repetir el mismo patrón, no elegir uno nuevo.
+- El contador reproduce la misma secuencia de ids en cada fotograma mientras
+  `AppState.blocks` no cambie entre fotogramas, que es el caso hoy (se
+  construye una vez, al cargar el documento). El día que el árbol de elementos
+  pueda cambiar sin recrear `AppState` —una recarga en caliente, por
+  ejemplo— este supuesto habría que revisarlo; no antes.
+
+Estado: activa
+
+---
+
+## AD-19 — Con qué se abre un enlace externo: crate `open`, función `that_detached`, sin fijar versión exacta
+
+Fecha: 2026-08-24
+
+**Contexto.** RF-15.1 exige invocar al navegador predeterminado del sistema
+para una URL `http`/`https`, sin bloquear el hilo de interfaz de GPUI
+(CA-02.4) y sin que la URL pueda interpretarse como sintaxis de shell —viene
+del cuerpo de un documento Markdown, que aquí se trata como dato no confiable.
+
+**Alternativas consideradas.**
+
+- *`std::process::Command::new("cmd").args(["/c","start","",url])`.*
+  Rechazada: el intérprete de `cmd.exe` trata `&`, `^` y otros caracteres de la
+  URL como sintaxis de shell; una URL con parámetros de consulta
+  (`?a=1&b=2`) puede partirse o algo peor. Cero dependencias, pero insegura con
+  una entrada que el documento controla.
+- *`windows`/`windows-sys` llamando a `ShellExecuteW` directamente.* Rechazada:
+  correcta, pero una dependencia grande para una sola llamada FFI cuando ya
+  existe un crate pequeño y enfocado que la envuelve con seguridad.
+- *Crate `open`, versión 5.4.2 (2026-08-24, MIT).* Elegida. Se leyó su
+  implementación real para Windows (`src/windows.rs`): la ruta por omisión
+  ejecuta `powershell.exe -NoProfile -NonInteractive -Command "Start-Process
+  -FilePath $env:OPEN_RS_TARGET"`, pasando la URL por una **variable de
+  entorno**, nunca interpolada en la cadena de comando, con `explorer.exe` como
+  segundo intento. El propio test del crate
+  (`default_open_does_not_embed_the_target_in_shell_code`) comprueba
+  exactamente la inyección que esta elección evita al no ser `cmd /c start`. La
+  característica `insecure`, que restauraría ese lanzador antiguo, **no está
+  activada**. En el objetivo Windows, `cargo tree -p open` resuelve a cero
+  dependencias transitivas, así que no compromete RNF-02.1 ni añade superficie
+  de compilación.
+- Dentro de `open`, `that()` frente a `that_detached()`. `that()` espera
+  (`Command::status()`) a que el lanzador (PowerShell o Explorer) termine antes
+  de devolver el control, y la propia documentación del crate avisa de que eso
+  puede tardar «cientos de milisegundos» — tiempo de sobra para notarse como una
+  congelación en el único hilo de interfaz de GPUI, justo lo que CA-02.4
+  comprueba. `that_detached()` lanza el proceso y devuelve el control de
+  inmediato (`Command::spawn()`, sin esperar). Elegida por eso.
+
+**Decisión.** `open = "5.4.2"` en `Cargo.toml`, sin fijar versión exacta: AD-03
+solo obliga a fijarla en las dependencias de interfaz —`gpui` y
+`gpui-component`— y `open` no lo es; sigue el mismo criterio ya usado con
+`pulldown-cmark`. `app::activate_link(url: &str)` comprueba que el esquema sea
+`http://` o `https://` antes de llamar a `open::that_detached(url)`; cualquier
+otro esquema (`mailto:`, un enlace relativo a otro `.md` —RF-14, otra
+feature—) no hace nada por ahora. La comprobación de esquema y la llamada
+viven las dos en `app`, no en `render`: `render` solo detecta el clic y le pasa
+la URL a `crate::app::activate_link`, así que sigue sin necesitar saber qué
+significa «activar un enlace», que es la frontera que fija
+`03-arquitectura.md`. Su `io::Result` se descarta (`let _ = ...`): ningún
+criterio pide un mensaje de error si falla, y CA-02.4 solo exige que MDView
+siga respondiendo, que descartar el error ya garantiza sin recurrir a
+`panic!`.
+
+**Consecuencias.**
+
+- No hay test para `activate_link`, conforme a la propia regla de AD-17:
+  ejercitarla de verdad abre un navegador, lo que no cabe en un test sin
+  fixtures, y los cuatro criterios de HU-02 son explícitamente de observación,
+  no de código. Los cuatro se verificaron sobre la aplicación en marcha
+  (ver `pruebas/` y el cierre de la historia).
+- Si una feature futura necesita informar de un fallo al abrir el navegador
+  («no hay navegador predeterminado configurado»), el `io::Result`
+  descartado tendrá que convertirse en un valor devuelto o registrado. Se
+  descarta hoy por los criterios de hoy, no porque abrir un enlace no pueda
+  fallar nunca.
+
+Estado: activa
+
+---
+
 ## Pendientes de esta feature
 
-- **Cómo se abren los enlaces externos** (RF-15.1, HU-02). El crate `open` es el
-  candidato evidente. Consultado crates.io el 2026-08-24: la última versión es
-  la **5.4.2**, publicada ese mismo día, licencia MIT. En Windows sus
-  dependencias directas se reducen a `dunce` (opcional); `is-wsl` y `libc` son
-  solo de Unix. No arrastra nada que hable por red, así que no compromete
-  RNF-02.1. Queda por decidir si se fija la versión exacta: AD-03 obliga a ello
-  solo con las dependencias de interfaz, y `open` no lo es.
-  (`../ver-un-documento/decisiones.md` anunciaba la 5.4.1 del 2026-08-05, que
-  era la última cuando se escribió aquello.)
 - **Dónde vive la ruta del archivo abierto** (RF-11.1, HU-03). Hoy
   `document::load` devuelve solo el texto, y resolver una ruta relativa exige
   saber en qué directorio está el `.md`. Toca la frontera entre `document`,

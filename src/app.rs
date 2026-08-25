@@ -118,3 +118,15 @@ pub fn record_timing(path: &Path, start: SystemTime) {
 fn epoch_millis(time: SystemTime) -> u128 {
     time.duration_since(UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0)
 }
+
+/// Reacts to a click on a link span (RF-15.1). Only `http`/`https` are
+/// handed to the system's default browser; anything else — a `mailto:`
+/// link, or a relative `.md` link, which is RF-14 in another feature — does
+/// nothing today. If the browser can't be launched, the failure is dropped:
+/// there is nothing useful to show the user for it, and CA-02.4 requires
+/// MDView to keep responding either way (errors as values, never `panic!`).
+pub fn activate_link(url: &str) {
+    if url.starts_with("http://") || url.starts_with("https://") {
+        let _ = open::that_detached(url);
+    }
+}
