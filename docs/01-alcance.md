@@ -76,7 +76,8 @@ son lo mismo que cosas descartadas.
 **Rendimiento**
 
 - Desde el doble clic hasta el documento visible, en arranque en frío y con un
-  archivo de unos 50 KB, transcurre menos de 1 segundo.
+  archivo de unos 50 KB, transcurren menos de 1,2 segundos. El umbral fue de
+  1 segundo hasta el 2026-08-24 (ver AD-14).
 
 **Plataforma**
 

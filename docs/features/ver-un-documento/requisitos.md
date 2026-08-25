@@ -88,8 +88,9 @@ a desplazarse horizontalmente para leer un párrafo.
 
 Refina: RNF-01
 Desde que se invoca la aplicación con la ruta de un archivo hasta que su
-documento está visible deben transcurrir **menos de 1 segundo**, medido en
-arranque en frío y con un archivo de aproximadamente 50 KB.
+documento está visible deben transcurrir **menos de 1,2 segundos**, medido en
+arranque en frío y con un archivo de aproximadamente 50 KB. El umbral fue de
+1 segundo hasta el 2026-08-24; lo renegoció AD-14, junto con el padre.
 
 El requisito padre mide desde el doble clic en el Explorador. Aquí se mide desde
 la línea de comandos, que es el único camino que existe en esta feature y que

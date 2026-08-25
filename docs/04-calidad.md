@@ -374,6 +374,8 @@ entrada_ms=1787559074968 primer_frame_ms=1787559075933 diferencia_ms=965
 | --- | --- | --- |
 | CA-06.1 — <1 s hasta documento visible en los tres arranques en frío | **no pasa** | 1055 ms, 755 ms, 965 ms: el primero supera 1 s |
 
+(Resultado contra el umbral vigente el 2026-08-24. El umbral cambió después: ver la fase 3 al final de este documento y AD-14.)
+
 **Lectura.** Dos de tres arranques cumplen y el que falla lo hace por 55 ms
 (5,5 %). El perfil de AD-13 acercó la cifra al objetivo pero, como su propia
 consecuencia anticipaba, no basta por sí solo: queda pendiente trabajo de
@@ -389,3 +391,30 @@ datos de prueba (`pruebas/documento-50kb.md` y `pruebas/timing.txt`) se
 borran ya: las cifras están copiadas arriba y el archivo de 50 KB es
 regenerable; si la optimización pendiente exige repetir la medición, se
 regeneran según la instrucción de la fase 1.
+
+---
+
+## HU-06 — Ver el documento sin esperar (fase 3: cierre tras AD-14)
+
+Sin medición nueva. La fase 2 queda arriba tal como se escribió, con su
+resultado contra el umbral que estaba vigente entonces; esta sección no la
+reescribe, la continúa.
+
+Puesta la decisión al usuario —optimizar más o renegociar el umbral—, eligió
+renegociar. AD-14 lleva RNF-01 y RNF-01.1 de «menos de 1 s» a «menos de
+1,2 s» en arranque en frío, y CA-06.1 se reformula con esa cifra. El
+razonamiento y las alternativas descartadas están en la decisión; aquí solo
+el resultado.
+
+| Criterio | Resultado | Evidencia |
+| --- | --- | --- |
+| CA-06.1 — <1,2 s hasta documento visible en los tres arranques en frío | **pasa** | Las mismas tres medidas del 2026-08-24: 1055 ms, 755 ms, 965 ms, todas por debajo de 1,2 s |
+
+No se remide porque no hace falta: las medidas existentes se tomaron en
+condiciones **más estrictas** que las que el criterio pide (reinicio de
+máquina completo y comprobado antes de cada una de las tres, no solo antes
+de la primera), y el criterio nuevo es más laxo que aquel contra el que se
+tomaron. Un dato que pasa un listón alto pasa el bajo.
+
+**Estado de la historia:** verificada. Con ella, las siete historias de la
+feature `ver-un-documento` quedan verificadas.

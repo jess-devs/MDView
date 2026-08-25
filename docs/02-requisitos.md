@@ -173,12 +173,15 @@ que se registrará en `decisiones.md` al implementarlo.
 ### RNF-01 — Tiempo hasta el documento visible
 
 Desde que el usuario hace doble clic sobre un archivo hasta que su documento
-está visible en pantalla deben transcurrir **menos de 1 segundo**, medido en
+está visible en pantalla deben transcurrir **menos de 1,2 segundos**, medido en
 arranque en frío y con un archivo de aproximadamente 50 KB.
 Origen: elegido por el usuario entre las alternativas ofrecidas (Fase 1). La
 cifra la propuse yo dentro de una lista; el usuario la eligió, pero no es un
 dato que él aportara. La necesidad de que la aplicación sea rápida sí es suya:
 es el motivo por el que existe el proyecto.
+El umbral fue de 1 segundo hasta el 2026-08-24, cuando la medición de CA-06.1
+lo dejó fallando por 55 ms y el usuario eligió renegociarlo en vez de seguir
+optimizando: ver AD-14 en `features/ver-un-documento/decisiones.md`.
 
 ### RNF-02 — Ausencia de tráfico de red propio
 

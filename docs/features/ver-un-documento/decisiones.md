@@ -630,6 +630,64 @@ Estado: activa
 
 ---
 
+## AD-14 — Umbral de RNF-01 renegociado a 1,2 s en arranque en frío
+
+Fecha: 2026-08-24
+
+**Contexto.** La verificación de CA-06.1 (fase 2 de HU-06, `04-calidad.md`)
+dio 1055 ms, 755 ms y 965 ms en tres arranques en frío reales, con reinicio
+de máquina comprobado antes de cada uno. El criterio exige menos de 1 s en
+los tres, así que no pasa: falla el primero, por 55 ms (5,5 %). El perfil de
+AD-13 ya está aplicado y su propia consecuencia anticipaba este momento —
+o se optimiza más, o se renegocia el umbral. El usuario elige renegociar.
+
+**Sobre de dónde salió el 1 s.** El `Origen` de RNF-01 lo dice: la cifra la
+propuse yo dentro de una lista de alternativas y el usuario la eligió; no es
+un dato que él aportara. Lo suyo es la necesidad de que la aplicación sea
+rápida, que es el motivo por el que existe el proyecto. Renegociar el número
+no toca esa necesidad; ajusta una cifra que nunca tuvo más respaldo que la
+redondez.
+
+**Alternativas consideradas.**
+
+- *Mantener 1 s y seguir optimizando* (los candidatos anotados en AD-13:
+  reducir qué se carga de `gpui-component`, revisar AD-01, probar
+  `panic = "abort"`). Rechazada por ahora: cada intento cuesta ~10 min de
+  compilación con LTO más tres reinicios de máquina para re-verificar, sin
+  garantía de ganar los 55 ms, y 55 ms sobre 1 s no son distinguibles a ojo
+  por el lector que la historia describe. El coste no lo justifica hoy.
+- *Medir en caliente en vez de en frío*, donde la cifra ya cumple (~610 ms,
+  AD-13). Rechazada: cambiar el escenario de medida en lugar del umbral
+  disfraza el resultado. El usuario abre MDView en frío.
+- *Subir a 1,1 s.* Rechazada: deja 45 ms de margen sobre el peor dato
+  medido, que es del orden del ruido entre reinicios. Un arranque distinto
+  lo vuelve a romper y volvemos a esta misma decisión.
+- *Subir a 1,2 s.* Elegida. Deja 145 ms (~14 %) de margen sobre el peor de
+  los tres arranques medidos, suficiente para que la variación entre
+  reinicios no decida si el criterio pasa.
+
+**Decisión.** RNF-01 y su refinamiento RNF-01.1 pasan de «menos de 1
+segundo» a **menos de 1,2 segundos**, sin tocar el resto de su enunciado
+(arranque en frío, archivo de ~50 KB). CA-06.1 se reformula con la cifra
+nueva.
+
+**Consecuencias.**
+
+- CA-06.1 queda verificado y **pasa** con las tres medidas del 2026-08-24,
+  sin remedir: 1055/755/965 ms son todas menores que 1,2 s. HU-06 se cierra.
+- Los candidatos de optimización de AD-13 no se descartan; dejan de ser
+  bloqueantes. Siguen ahí si alguna vez hace falta apurar.
+- El margen es de 145 ms y RNF-01 (el padre) mide desde el doble clic en el
+  Explorador, un camino más largo que el de esta feature. La feature
+  `integracion-con-windows`, que es donde se verifica ese escenario, hereda
+  un margen estrecho: lo que añada por delante se come el margen.
+- Si una medición futura supera 1,2 s, lo que se revisa es esta decisión —
+  no el método de medida ni el escenario.
+
+Estado: activa
+
+---
+
 ## Decisiones que ya se sabe que habrá que tomar
 
 No son decisiones: son avisos de dónde van a aparecer, para que no se tomen por

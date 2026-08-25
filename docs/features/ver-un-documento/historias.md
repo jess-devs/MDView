@@ -177,16 +177,18 @@ código, MDView no me aporta nada.
 
 1. CA-06.1 — En tres arranques en frío consecutivos, con un archivo de
    aproximadamente 50 KB, el tiempo transcurrido desde la invocación hasta que el
-   documento está visible es menor que 1 segundo **en los tres**.
+   documento está visible es menor que 1,2 segundos **en los tres**. El umbral
+   era de 1 segundo hasta el 2026-08-24: lo renegoció AD-14, con RNF-01.
 
 El método de medición está descrito en `plan.md`. No es un criterio: es la forma
 de observar este, y sin él CA-06.1 no se puede comprobar.
 
-**Estado.** en curso — verificación ejecutada, CA-06.1 **no pasa** (1055 ms,
-755 ms, 965 ms en tres arranques en frío reales el 2026-08-24: el primero
-supera el segundo exigido). La historia queda abierta a la espera de decidir
-el pendiente: optimizar más (candidatos en AD-13) o renegociar el umbral de
-RNF-01. Detalle y evidencia en `docs/04-calidad.md`.
+**Estado.** verificada. CA-06.1 pasa: 1055 ms, 755 ms y 965 ms en tres
+arranques en frío reales el 2026-08-24, los tres por debajo del 1,2 s que
+exige el criterio desde AD-14. Con el umbral original de 1 segundo no
+pasaba, por 55 ms en el primer arranque; el usuario eligió renegociar el
+umbral en vez de seguir optimizando. Detalle y evidencia en
+`docs/04-calidad.md`.
 
 ---
 

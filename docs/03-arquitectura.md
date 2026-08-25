@@ -71,3 +71,4 @@ que le faltan entradas es peor que no tener índice.
 | AD-11 | Detectar el tema con `window.appearance()` de GPUI, con resincronía en caliente | `features/ver-un-documento/decisiones.md` | activa |
 | AD-12 | Avisos de error con `Notification` de `gpui-component`; `document::LoadError` clasifica, `app` redacta el mensaje | `features/ver-un-documento/decisiones.md` | activa |
 | AD-13 | Perfil de release con LTO, `codegen-units = 1` y `strip` (~16% más rápido en caliente, ~2.6× más lento de compilar) | `features/ver-un-documento/decisiones.md` | activa |
+| AD-14 | Umbral de RNF-01 renegociado de 1 s a 1,2 s en arranque en frío (CA-06.1 fallaba por 55 ms) | `features/ver-un-documento/decisiones.md` | activa |
