@@ -19,13 +19,14 @@ tocar código.
 | `docs/03-arquitectura.md` | Fronteras entre módulos, convenciones y el índice de todas las decisiones. |
 | `docs/04-calidad.md` | Resultado observado de cada criterio de aceptación, historia por historia. |
 | `docs/features/ver-un-documento/` | Requisitos, historias, plan y decisiones de la primera feature. |
+| `docs/features/enlaces-e-imagenes/` | Ídem de la segunda: enlaces externos e imágenes locales. |
 
-Estado: HU-01 verificada. El resto de historias de `ver-un-documento` sigue
-pendiente.
+Estado: `ver-un-documento` cerrada, sus siete historias verificadas.
+`enlaces-e-imagenes` abierta, sus cinco historias pendientes.
 
-El trabajo está dividido en cuatro features. Solo la primera tiene artefactos; el
-orden de las cuatro y el reparto de requisitos entre ellas está en
-`docs/features/ver-un-documento/plan.md`.
+El trabajo está dividido en cinco features. Solo las dos primeras tienen
+artefactos; el orden de las cinco y el reparto de requisitos entre ellas está en
+`docs/features/enlaces-e-imagenes/plan.md`.
 
 ## Reglas
 

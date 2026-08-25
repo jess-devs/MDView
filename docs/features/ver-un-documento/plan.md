@@ -15,6 +15,12 @@ está en `requisitos.md`.
    HTML, enlaces externos y ausencia de tráfico de red. Va antes que las
    pestañas porque un documento mal renderizado en tres pestañas sigue siendo un
    documento mal renderizado.
+
+   **Partida en dos el 2026-08-24**, porque sus historias pasaban del techo de
+   seis: `enlaces-e-imagenes` (RF-11, RF-15, RNF-02) y después
+   `front-matter-y-html` (RF-12, RF-13). El motivo del corte y el del orden
+   están en `../enlaces-e-imagenes/plan.md`. Las features del proyecto son
+   cinco, no cuatro; esa lista está allí.
 3. **`varios-documentos-en-pestanas`** — varias rutas a la vez, cambiar y cerrar
    pestañas, y enlaces a otros `.md`.
 4. **`integracion-con-windows`** — asociación de `.md`, doble clic e instancia

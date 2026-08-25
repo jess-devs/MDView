@@ -694,10 +694,10 @@ No son decisiones: son avisos de dónde van a aparecer, para que no se tomen por
 descuido y sin dejar rastro.
 
 - **Qué biblioteca analiza el YAML del front matter** (RF-12). Pertenece a la
-  feature `contenido-enriquecido`; no bloquea nada de esta.
+  feature `front-matter-y-html`; no bloquea nada de esta.
 - **Cómo se abren los enlaces externos** (RF-15). El crate `open`, versión 5.4.1
   publicada el 2026-08-05 y licencia MIT, es el candidato evidente, pero la
-  decisión pertenece a la feature `contenido-enriquecido`.
+  decisión pertenece a la feature `enlaces-e-imagenes`.
 - **Cómo se registra la asociación de `.md`**, con instalador o con auto-registro
   al arrancar. Sigue abierta en `01-alcance.md` y pertenece a la feature
   `integracion-con-windows`.
