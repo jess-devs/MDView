@@ -213,17 +213,28 @@ listener del clic resuelve el rango pulsado a su URL y llama a
 
 **Consecuencias.**
 
-- Las celdas de tabla (`render_table_row`) siguen llamando a `render_spans`
-  directamente y solo usan su mitad `StyledText`: un enlace dentro de una tabla
-  se ve distinguible (color y subrayado) pero no es pulsable todavía. Ningún
-  criterio de HU-02 lo exige —los documentos de prueba de `plan.md` no ponen
-  enlaces en tablas— pero queda como una carencia conocida, no registrada como
-  decisión porque cerrarla es repetir el mismo patrón, no elegir uno nuevo.
 - El contador reproduce la misma secuencia de ids en cada fotograma mientras
   `AppState.blocks` no cambie entre fotogramas, que es el caso hoy (se
   construye una vez, al cargar el documento). El día que el árbol de elementos
   pueda cambiar sin recrear `AppState` —una recarga en caliente, por
   ejemplo— este supuesto habría que revisarlo; no antes.
+
+**Consecuencia añadida (2026-08-24), al cerrar CA-02.5.** Las celdas de tabla
+(`render_table_row`) llamaban a `render_spans` directamente y solo usaban su
+mitad `StyledText`: un enlace dentro de una tabla se veía distinguible (color y
+subrayado) pero no era pulsable. Se registró como carencia conocida, no como
+decisión aparte, con el argumento de que ninguna CA de HU-02 lo exigía. Ese
+argumento resultó ser un error de alcance, no de arquitectura: RF-15.1 no
+distingue dónde está escrito el enlace, y la lista de criterios que se comprobó
+estaba incompleta frente al requisito. `historias.md` ganó CA-02.5 para
+cerrarlo. La corrección **no cambió esta decisión, la completó**: `render_table`
+y `render_table_row` ahora reciben el mismo `text_index: &mut usize` que ya
+hilvanaban `render_block`/`render_list`, y cada celda pasa por `render_text`
+igual que un párrafo o un encabezado, tomando su id de la misma secuencia. No
+hay contador nuevo ni prefijo nuevo de `ElementId`: al ser una única secuencia
+monótona compartida por párrafos, encabezados y ahora celdas, la unicidad
+dentro de un documento se mantiene por construcción, sin necesidad de
+coordinar dos contadores.
 
 Estado: activa
 

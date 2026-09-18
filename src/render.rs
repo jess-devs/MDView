@@ -176,7 +176,7 @@ fn render_block(
         Block::List { ordered, start, items } => {
             render_list(*ordered, *start, items, code_index, text_index, window, cx).into_any_element()
         }
-        Block::Table { header, rows } => render_table(header, rows, cx).into_any_element(),
+        Block::Table { header, rows } => render_table(header, rows, text_index, cx).into_any_element(),
         Block::CodeBlock(text) => {
             // Each code block needs its own horizontal ScrollHandle: the
             // convenience `overflow_x_scrollbar()` derives its state key from
@@ -263,20 +263,20 @@ fn render_list(
     list
 }
 
-fn render_table(header: &[Vec<Span>], rows: &[Vec<Vec<Span>>], cx: &App) -> impl IntoElement {
+fn render_table(header: &[Vec<Span>], rows: &[Vec<Vec<Span>>], text_index: &mut usize, cx: &App) -> impl IntoElement {
     let mut table = div().v_flex().w_full();
 
     if !header.is_empty() {
-        table = table.child(render_table_row(header, true, cx));
+        table = table.child(render_table_row(header, true, text_index, cx));
     }
     for row in rows {
-        table = table.child(render_table_row(row, false, cx));
+        table = table.child(render_table_row(row, false, text_index, cx));
     }
 
     table
 }
 
-fn render_table_row(cells: &[Vec<Span>], is_header: bool, cx: &App) -> impl IntoElement {
+fn render_table_row(cells: &[Vec<Span>], is_header: bool, text_index: &mut usize, cx: &App) -> impl IntoElement {
     let mut row = div().flex().w_full().gap_4().p_2().text_size(px(BODY_SIZE));
     if is_header {
         row = row.bg(cx.theme().muted).border_b_2().border_color(cx.theme().border);
@@ -285,11 +285,13 @@ fn render_table_row(cells: &[Vec<Span>], is_header: bool, cx: &App) -> impl Into
     }
 
     for cell in cells {
+        let id = *text_index;
+        *text_index += 1;
         row = row.child(
             div()
                 .flex_1()
                 .whitespace_normal()
-                .child(render_spans(cell, is_header, cx).0),
+                .child(render_text(cell, is_header, ("text-block", id), cx)),
         );
     }
 

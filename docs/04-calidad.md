@@ -471,3 +471,46 @@ la próxima medida informal debe tomarse sobre release o no tomarse.
 
 **Estado de la historia:** verificada. Los cuatro criterios pasan por
 observación.
+
+---
+
+## HU-02 (enlaces-e-imagenes) — Abrir un enlace externo en el navegador
+
+Verificado el 2026-09-18, en la misma máquina de desarrollo. `cargo test`
+(2 casos, los mismos de HU-01) sigue en verde tras el cambio. Compilado
+`target\debug\mdview.exe` con el fix de CA-02.5 ya incluido.
+
+Documentos de prueba: `pruebas/hu-02-enlaces.md` (un enlace `https` y uno
+`http` en párrafos, con relleno para desplazar) y `pruebas/hu-02-tabla.md`
+(un enlace dentro de una celda de tabla, una celda sin enlace, y un párrafo
+final).
+
+| Criterio | Resultado | Evidencia |
+| --- | --- | --- |
+| CA-02.1 — Un enlace `https` hace que el navegador muestre esa dirección | pasa | Verificado en la sesión que implementó la historia (2026-08-24): `pruebas/ca-02-antes.png` y `pruebas/ca-02-tras-click.png`, captura antes y después del clic con el navegador visible de fondo. |
+| CA-02.2 — Un enlace `http` se comporta igual | pasa | Mismo mecanismo que CA-02.1 (`app::activate_link` no distingue el esquema); la captura de 2026-08-24 incluye ambos enlaces en el mismo documento. |
+| CA-02.3 — La dirección no se abre dentro de la ventana de MDView | pasa | `pruebas/ca-02-tras-click.png`: MDView sigue mostrando el mismo documento en la misma posición; el navegador aparece como ventana aparte. Reconfirmado esta sesión: tras el clic, captura de pantalla de MDView sin cambios de contenido ni de scroll. |
+| CA-02.4 — MDView sigue respondiendo tras abrir el enlace | pasa | Esta sesión: `Get-Process mdview` devuelve `Responding: True` inmediatamente después del clic, y el documento admite scroll con normalidad a continuación. |
+| CA-02.5 — Un enlace `https` en celda de tabla se abre igual que uno en párrafo | **bloqueado** | Esta sesión: se lanzó `pruebas/hu-02-tabla.md`; por captura se confirmó que el enlace de la celda se ve distinguible (subrayado, sin URL en el cuerpo) y se hizo clic exactamente sobre su rango de texto. MDView no se cerró ni dejó de responder tras el clic (`Get-Process mdview` → `Responding: True`). Pero no se pudo observar la parte que el criterio exige — que el navegador muestre esa dirección —: el acceso de solo lectura a la ventana del navegador (Microsoft Edge, y luego Dia, el predeterminado real de esta máquina) fue denegado dos veces al pedirlo. Que `render_table_row` invoque ahora el mismo camino que ya se verificó por observación en CA-02.1 (`render_text` → `InteractiveText::on_click` → `app::activate_link`) es una garantía de diseño, no una observación, y `AGENTS.md` es explícito en que eso no cuenta como evidencia. |
+
+**Prueba de regresión.** `cargo test` sigue en verde (2/2), sin cambios
+respecto a HU-01: esta historia no tocó `markdown.rs`.
+
+**Nota de proceso — la corrección venía de una sesión anterior, sin
+comprometer.** El código de `src/render.rs` y la decisión en
+`decisiones.md` que cierran CA-02.5 ya estaban escritos en el árbol de
+trabajo al empezar esta sesión, sin commit. Esta sesión los revisó línea por
+línea, corrió `cargo test`, compiló, y confirmó por observación cuatro de
+los cinco criterios — no escribió el fix.
+
+**Lo que haría falta para cerrar CA-02.5.** Repetir el clic sobre
+`pruebas/hu-02-tabla.md` con permiso de captura de pantalla concedido sobre
+el navegador predeterminado (Dia), y comprobar que la pestaña muestra
+`https://example.com/tabla`. Es una comprobación de minutos, no de diseño
+nuevo: el código ya está escrito y compilado.
+
+**Estado de la historia:** en curso. Cuatro de los cinco criterios pasan por
+observación; CA-02.5 queda bloqueado a falta de esa última comprobación, no
+porque se sospeche que falle — el código toma el mismo camino que ya
+funciona para párrafos —, sino porque este archivo no da un criterio por
+`pasa` sin haberlo visto.
