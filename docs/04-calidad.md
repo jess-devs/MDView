@@ -521,7 +521,7 @@ observación directa.
 ## HU-03 (enlaces-e-imagenes) — Ver las imágenes que el documento referencia
 
 Verificado el 2026-09-18, en la misma máquina de desarrollo. `cargo test`
-(8 casos: los 2 de HU-01/HU-02 más 6 propios de esta historia sobre
+(5 casos: los 2 de HU-01/HU-02 más 3 propios de esta historia sobre
 `Inline`/`ImageRef`) en verde. Compilado `target\debug\mdview.exe`.
 
 Documento de prueba: `pruebas/hu-03-imagenes/documento.md`, con una imagen
@@ -542,7 +542,7 @@ por coincidencia.
 | CA-03.4 — Archivo existente no decodificable muestra su texto alternativo, sin terminar ni dejar de responder | pasa | Misma captura: «este archivo no es una imagen decodificable» se muestra en el lugar de `img/no-es-imagen.png` (un `.png` que es texto plano). `Get-Process mdview` → `Responding: True` tras el scroll. |
 | CA-03.5 — Imagen más ancha que la columna se ajusta a ese ancho, sin desbordar ni pedir scroll horizontal | pasa | Captura y zoom sobre la franja de `ancha.png`: la imagen de 2200×300 se ve completa dentro del ancho de la ventana, proporción mantenida, sin tocar los bordes ni aparecer barra de scroll horizontal. |
 
-**Prueba de regresión.** `cargo test`: 8/8 en verde, incluyendo los 2 casos
+**Prueba de regresión.** `cargo test`: 5/5 en verde, incluyendo los 2 casos
 de HU-01/HU-02 (`markdown.rs` no perdió su comportamiento previo con enlaces
 y bloques HTML).
 
