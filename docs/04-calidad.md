@@ -595,3 +595,77 @@ para HU-04, solo el documento de prueba y la medición.
 
 **Estado de la historia:** verificada. Los tres criterios pasan por
 observación directa.
+
+---
+
+## HU-05 (enlaces-e-imagenes) — Seguir viendo el documento sin esperar
+
+Verificado el 2026-09-18, coordinado con el usuario: exige tres arranques en
+frío con reinicio completo de la máquina antes de cada uno, igual que
+`ver-un-documento/HU-06`.
+
+**Documento de prueba.** `pruebas/hu-05-arranque/documento.md`, 50,0 KB,
+generado con relleno (el mismo patrón que `documento-50kb.md` en
+`ver-un-documento`), con tres imágenes locales intercaladas
+(`img/captura1.png`, `.../captura2.png`, `.../captura3.png`), 334–356 KB
+cada una —del orden de una captura de pantalla real, no miniaturas, como
+pide `plan.md`—, generadas con `System.Drawing` de .NET con ruido por
+píxel para que el PNG no comprima a casi nada como haría un color plano.
+
+**Automatización.** Para no requerir intervención manual en cada medida, se
+montó `C:\...\Escritorio\MDView-HU05\medir.bat`: en cada ejecución comprueba
+`(Get-Date) - LastBootUpTime` y se niega a medir si pasaron más de 10
+minutos desde el arranque (para no colar una medida en caliente como si
+fuera en frío), lanza `mdview.exe` con `MDVIEW_TIMING` apuntando a
+`timing.txt`, espera a que aparezca la línea, la copia a `resultado.txt`
+—en modo añadir, una línea por medida, nunca se sobrescriben entre sí— y
+pregunta si reiniciar para la siguiente. Sin registro en el arranque de
+Windows: el usuario vuelve a hacer doble clic tras cada reinicio. Probado
+por esta sesión antes de entregarlo (lanzamiento, captura de
+`diferencia_ms`, escritura en `resultado.txt`, sin la propia comprobación
+de arranque en frío, imposible de simular sin reiniciar de verdad); un
+primer intento con `echo 0>archivo.txt` escribía el archivo vacío —`cmd`
+interpreta `0>`/`1>` como redirección de un descriptor de archivo en vez de
+como el texto «0» o «1»—, corregido añadiendo un espacio antes de cada `>`.
+
+**Las tres medidas, copiadas de `resultado.txt` antes de borrarlo:**
+
+```
+Medida 1: diferencia_ms=666   segundos_desde_arranque=115
+Medida 2: diferencia_ms=699   segundos_desde_arranque=40
+Medida 3: diferencia_ms=723   segundos_desde_arranque=48
+```
+
+| Criterio | Resultado | Evidencia |
+| --- | --- | --- |
+| CA-05.1 — <1,2 s hasta documento visible en los tres arranques en frío | pasa | 666, 699 y 723 ms: las tres por debajo de 1,2 s, con margen de al menos 477 ms en la peor (muy por encima del margen de 145 ms que dejaba CA-06.1 en `ver-un-documento` sin imágenes). |
+
+**Lectura.** El riesgo que `plan.md` señalaba desde el principio —«decodificar
+imágenes antes del primer fotograma puede consumir el margen entero»— no se
+materializó: `gpui::img()` carga de forma asíncrona (AD-20) y no bloquea el
+primer fotograma, así que las tres imágenes de ~340 KB cada una no movieron
+la aguja frente a los ~610–755 ms que ya daba HU-06 sin ninguna imagen.
+
+**Nota de proceso — Smart App Control bloqueaba el build de release.**
+Antes de poder medir nada hizo falta compilar `target\release\mdview.exe`
+por primera vez en esta máquina, y **Smart App Control** de Windows
+bloqueaba a `rustc.exe` cargar las DLL de macros recién compiladas
+(`paste-....dll`) y, en un segundo intento en otra carpeta, el script de
+build de `tree-sitter-json`: confirmado en
+`Microsoft-Windows-CodeIntegrity/Operational` (sucesos 3077/3118), no por
+inferencia. No es un problema de este proyecto ni de sus dependencias —es
+la política de la máquina bloqueando cualquier binario nuevo sin firmar—,
+así que no hay nada que registrar como decisión de arquitectura. El usuario
+desactivó Smart App Control (Configuración → Seguridad de Windows;
+irreversible sin reinstalar el sistema) para poder seguir. Queda anotado
+aquí porque quien repita esta medición en una máquina con Smart App Control
+activo se topará con lo mismo.
+
+**Datos de prueba borrados al cerrar la historia:**
+`pruebas/hu-05-arranque/` (documento e imágenes, regenerable) y la carpeta
+`MDView-HU05` del escritorio (script, copia de `mdview.exe` y
+`resultado.txt`, ya copiado arriba).
+
+**Estado de la historia:** verificada. El único criterio pasa por
+observación directa, en las condiciones más estrictas de `plan.md` (tres
+reinicios completos, uno antes de cada medida).

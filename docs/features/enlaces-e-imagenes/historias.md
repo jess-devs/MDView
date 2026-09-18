@@ -1,7 +1,7 @@
 # Historias — enlaces-e-imagenes
 
 > Estado: borrador
-> Última actualización: 2026-08-24
+> Última actualización: 2026-09-18
 > Modo: new-feature
 
 Cinco historias, un único tipo de usuario: el lector de documentación técnica de
@@ -137,7 +137,8 @@ documento no devuelva a MDView al tiempo de arranque de un editor de código.
 El umbral es el de RNF-01 tras AD-14, no uno propio de esta feature. El método de
 medición es el mismo que el de CA-06.1 en `ver-un-documento/plan.md`.
 
-**Estado.** pendiente
+**Estado.** verificada. El único criterio pasa por observación; el detalle
+está en `docs/04-calidad.md`.
 
 ---
 
