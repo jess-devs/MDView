@@ -170,6 +170,24 @@ fn render_block(
         }
         Block::Table { header, rows } => render_table(header, rows, text_index, cx).into_any_element(),
         Block::Centered(inlines) => render_centered(inlines, text_index, cx),
+        Block::Details { summary, children } => {
+            let mut container = div().v_flex().gap_2().w_full();
+            if !summary.is_empty() {
+                let id = *text_index;
+                *text_index += 1;
+                container = container.child(
+                    div()
+                        .w_full()
+                        .whitespace_normal()
+                        .text_size(px(BODY_SIZE))
+                        .child(render_text(summary, true, ("text-block", id), cx)),
+                );
+            }
+            for child in children {
+                container = container.child(render_block(child, code_index, text_index, window, cx));
+            }
+            container.into_any_element()
+        }
         Block::CodeBlock(text) => {
             // Each code block needs its own horizontal ScrollHandle: the
             // convenience `overflow_x_scrollbar()` derives its state key from

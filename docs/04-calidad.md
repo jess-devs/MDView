@@ -840,3 +840,39 @@ segunda como fila de cuerpo.
 
 **Estado de la historia:** verificada. Los tres criterios pasan por
 observación directa.
+
+---
+
+## HU-05 (front-matter-y-html) — Ver una sección plegable de HTML incrustada
+
+Verificado el 2026-09-18, en la misma máquina de desarrollo. `cargo test`
+(31 casos: los 28 anteriores más 3 propios de esta historia) en verde.
+Compilado `target\debug\mdview.exe`.
+
+Documento de prueba: `pruebas/hu-05-details/documento.md`, un `<details>`
+con `<summary>` y un párrafo dentro, entre dos párrafos normales.
+
+| Criterio | Resultado | Evidencia |
+| --- | --- | --- |
+| CA-05.1 — El `<summary>` se distingue visualmente del contenido | pasa | Captura: «Ver mas detalles» en negrita, el párrafo que sigue en peso normal. |
+| CA-05.2 — El contenido de `<details>` es legible sin ninguna acción del usuario | pasa | Misma captura: el párrafo de contenido se ve de inmediato, sin haber pulsado nada — la decisión de AD-24, confirmada por observación, no solo por diseño. |
+| CA-05.3 — El párrafo anterior y el posterior se siguen mostrando | pasa | Misma captura: «Parrafo antes del details.» y «Parrafo despues del details.» visibles. |
+
+**Prueba de regresión.** `cargo test`: 31/31 en verde.
+
+**Nota de proceso.** `parse_html_blocks_until` (HU-03/HU-04) ganó un
+parámetro `stop_name` para esta historia: `<details>` es la primera
+etiqueta cuyo contenido es, a su vez, una secuencia de bloques —no texto en
+línea, no una lista de `<li>`—, así que se resuelve llamando a la misma
+función otra vez en vez de escribir un bucle nuevo. El diseño completo,
+con las alternativas de cómo mostrar `details`/`summary`, está en AD-24:
+la decisión —siempre visible, sin plegado— ya la había anotado `plan.md`
+como opción por defecto antes de escribir código; aquí solo se confirma y
+se verifica por observación.
+
+**Estado de la historia:** verificada. Los tres criterios pasan por
+observación directa.
+
+Con esta historia, las cuatro de RF-13.1 (HU-02 a HU-05) están construidas;
+queda pendiente el matiz de CA-02.4 anotado en HU-02, antes de cerrar la
+feature.

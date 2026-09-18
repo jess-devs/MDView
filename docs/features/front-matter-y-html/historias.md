@@ -157,7 +157,8 @@ tome al implementar esta historia, no estos criterios por sí solos.
 3. CA-05.3 — El párrafo anterior y el posterior al `<details>` se siguen
    mostrando.
 
-**Estado.** pendiente
+**Estado.** verificada. Los tres criterios pasan por observación; el
+detalle está en `docs/04-calidad.md`.
 
 ---
 

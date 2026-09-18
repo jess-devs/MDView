@@ -193,3 +193,54 @@ bloque de texto.
   exactamente esta.
 
 Estado: activa
+
+---
+
+## AD-24 — `details`/`summary`: siempre visible, sin plegado interactivo
+
+Fecha: 2026-09-18
+
+**Contexto.** `plan.md` ya señaló este riesgo antes de implementar nada:
+`details`/`summary` no tiene equivalente en CommonMark, así que RF-13.1
+—«el formato equivalente al del elemento Markdown correspondiente»— no
+puede aplicarse literalmente. Hacía falta decidir qué significa mostrarlo
+bien, y quedó anotada la opción por defecto para tomarla aquí, no antes.
+
+**Alternativas consideradas.**
+
+- *Widget plegable de verdad: colapsado por omisión, con un control para
+  expandirlo.* Es el comportamiento de un `<details>` en un navegador.
+  Rechazada: exige estado propio por bloque (expandido/colapsado),
+  detección de clic sobre el `<summary>`, e ícono de triángulo que cambia.
+  MDView es un visor de solo lectura (AD-05) cuyo objetivo es que todo se
+  pueda leer sin ninguna acción; nada en `00-contexto.md` ni en RF-13.1
+  pide reproducir el comportamiento interactivo de HTML, solo «el formato
+  equivalente». Añadir esa complejidad sin que ningún criterio la exija es
+  justo lo que este proyecto evita.
+- *Mostrar `summary` y el contenido de `details` siempre visibles, sin
+  plegado.* Elegida, tal como anotó `plan.md`. `summary` se muestra en
+  negrita —distinguible del contenido, CA-05.1—, y el contenido sigue
+  inmediatamente debajo, siempre, sin ninguna acción del usuario (CA-05.2).
+
+**Decisión.** `Block::Details { summary: Vec<Span>, children: Vec<Block> }`.
+`summary` se aplana a `Span` con `flatten_inlines_to_spans` —igual que una
+celda de tabla o un encabezado (AD-20): es una etiqueta corta, no un lugar
+donde se espere una imagen— y `render::render_block` lo dibuja en negrita
+con el mismo `render_text` que ya usan los encabezados. `children` es
+`Vec<Block>`, no `Vec<Inline>`: el contenido de un `<details>` real suele
+ser más que una línea de texto —un párrafo, una lista, otro bloque HTML—,
+así que `parse_html_blocks_until` se llama de nuevo sobre lo que sigue al
+`</summary>`, recursivamente, en vez de tratarlo como contenido en línea.
+
+**Consecuencias.**
+
+- Es la primera vez que `parse_html_blocks_until` se llama con un
+  `stop_name`: hizo falta refactorizar el bucle plano de HU-03/HU-04 en una
+  función recursiva que se detiene en una etiqueta de cierre dada, en vez
+  de escribir una segunda copia del mismo bucle solo para `<details>`.
+- Si una historia futura —de otra feature, ninguna de esta lo pide— quiere
+  plegado de verdad, esta decisión es la que hay que revisar primero: hoy
+  no hay ningún estado que guardar por bloque, y añadirlo cambia tanto
+  `Block::Details` como `render_block`.
+
+Estado: activa

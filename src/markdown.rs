@@ -68,6 +68,10 @@ pub enum Block {
     /// CommonMark has no equivalent construct, so this has no Markdown
     /// counterpart — unlike every other `Block` variant.
     Centered(Vec<Inline>),
+    /// A `<details>` (RF-13.1, HU-05), with its `<summary>` text — empty if
+    /// it had none — and the rest of its content. Always shown in full, no
+    /// collapsing: see AD-24.
+    Details { summary: Vec<Span>, children: Vec<Block> },
 }
 
 /// Parses Markdown source into a list of top-level blocks. `base_dir` is the
@@ -379,6 +383,15 @@ type HtmlTokens<'a> = std::iter::Peekable<std::slice::Iter<'a, crate::html::Toke
 /// against 0.13.4), so this loops rather than expecting exactly one.
 fn parse_html_block_tokens(tokens: &[crate::html::Token], base_dir: Option<&Path>) -> Vec<Block> {
     let mut iter = tokens.iter().peekable();
+    parse_html_blocks_until(&mut iter, base_dir, None)
+}
+
+/// The recursive core of `parse_html_block_tokens`: reads blocks until the
+/// tokens run out, or —when `stop_name` is given— until that tag's closing
+/// tag, which it consumes. `stop_name` exists for `<details>` (HU-05): its
+/// content is itself a sequence of block-level tags, parsed by calling this
+/// function again rather than a second copy of the same loop.
+fn parse_html_blocks_until(iter: &mut HtmlTokens, base_dir: Option<&Path>, stop_name: Option<&str>) -> Vec<Block> {
     let mut blocks = Vec::new();
 
     while let Some(token) = iter.peek() {
@@ -387,7 +400,11 @@ fn parse_html_block_tokens(tokens: &[crate::html::Token], base_dir: Option<&Path
                 iter.next(); // stray text outside any recognized tag: dropped
             }
             crate::html::Token::Tag(tag) if tag.closing => {
+                let is_stop = stop_name == Some(tag.name.as_str());
                 iter.next(); // an unmatched closing tag: nothing open to close
+                if is_stop {
+                    break;
+                }
             }
             crate::html::Token::Tag(tag) => {
                 let name = tag.name.clone();
@@ -395,25 +412,30 @@ fn parse_html_block_tokens(tokens: &[crate::html::Token], base_dir: Option<&Path
                 iter.next();
                 match name.as_str() {
                     "p" => {
-                        let inlines = collect_html_inline(&mut iter, base_dir, "p");
+                        let inlines = collect_html_inline(iter, base_dir, "p");
                         if !inlines.is_empty() {
                             blocks.push(Block::Paragraph(inlines));
                         }
                     }
                     "hr" => blocks.push(Block::ThematicBreak),
                     "ul" => {
-                        let items = parse_html_list_items(&mut iter, base_dir);
-                        consume_html_close(&mut iter, "ul");
+                        let items = parse_html_list_items(iter, base_dir);
+                        consume_html_close(iter, "ul");
                         blocks.push(Block::List { ordered: false, start: 1, items });
                     }
                     "div" if centered => {
-                        let inlines = collect_html_inline(&mut iter, base_dir, "div");
+                        let inlines = collect_html_inline(iter, base_dir, "div");
                         blocks.push(Block::Centered(inlines));
                     }
                     "table" => {
-                        let (header, rows) = parse_html_table(&mut iter, base_dir);
-                        consume_html_close(&mut iter, "table");
+                        let (header, rows) = parse_html_table(iter, base_dir);
+                        consume_html_close(iter, "table");
                         blocks.push(Block::Table { header, rows });
+                    }
+                    "details" => {
+                        let summary = parse_html_summary(iter, base_dir);
+                        let children = parse_html_blocks_until(iter, base_dir, Some("details"));
+                        blocks.push(Block::Details { summary, children });
                     }
                     // Any other tag — including a `div` without centering,
                     // which RF-13.1 doesn't ask for — shows no markup of its
@@ -427,6 +449,28 @@ fn parse_html_block_tokens(tokens: &[crate::html::Token], base_dir: Option<&Path
     }
 
     blocks
+}
+
+/// Reads a `<details>`'s leading `<summary>...</summary>`, if it has one —
+/// skipping whitespace-only text before it, the same way
+/// `parse_html_list_items` skips it between `<li>`s. Returns an empty `Vec`
+/// (not a missing block) when there is none: CA-05.1 only has something to
+/// compare against `<details>`'s own content when there's a summary to show,
+/// but a `<details>` without one is still valid HTML.
+fn parse_html_summary(iter: &mut HtmlTokens, base_dir: Option<&Path>) -> Vec<Span> {
+    while let Some(crate::html::Token::Text(t)) = iter.peek() {
+        if !t.trim().is_empty() {
+            break;
+        }
+        iter.next();
+    }
+    match iter.peek() {
+        Some(crate::html::Token::Tag(tag)) if !tag.closing && tag.name == "summary" => {
+            iter.next();
+            flatten_inlines_to_spans(collect_html_inline(iter, base_dir, "summary"))
+        }
+        _ => Vec::new(),
+    }
 }
 
 fn parse_html_list_items(iter: &mut HtmlTokens, base_dir: Option<&Path>) -> Vec<ListItem> {
@@ -972,6 +1016,50 @@ mod tests {
         assert_eq!(rows.len(), 2);
         assert_eq!(rows[0][0][0].text, "uno");
         assert_eq!(rows[1][1][0].text, "2");
+    }
+
+    #[test]
+    fn html_block_details_keeps_summary_and_content_both_always_visible() {
+        let source = "<details>\n<summary>Ver mas</summary>\n<p>contenido oculto en HTML</p>\n</details>\n";
+        let blocks = parse(source, None);
+        let (summary, children) = blocks
+            .iter()
+            .find_map(|b| match b {
+                Block::Details { summary, children } => Some((summary, children)),
+                _ => None,
+            })
+            .expect("falta el details");
+
+        assert_eq!(summary[0].text, "Ver mas");
+        assert_eq!(children.len(), 1);
+        let content_text: String = children
+            .iter()
+            .flat_map(|b| match b {
+                Block::Paragraph(inlines) => spans_in(inlines).into_iter().map(|s| s.text.clone()).collect(),
+                _ => vec![],
+            })
+            .collect();
+        assert_eq!(content_text, "contenido oculto en HTML");
+    }
+
+    #[test]
+    fn html_block_details_without_summary_still_shows_its_content() {
+        let blocks = parse("<details>\n<p>solo contenido</p>\n</details>\n", None);
+        let (summary, children) = blocks
+            .iter()
+            .find_map(|b| match b {
+                Block::Details { summary, children } => Some((summary, children)),
+                _ => None,
+            })
+            .expect("falta el details");
+        assert!(summary.is_empty());
+        assert_eq!(children.len(), 1);
+    }
+
+    #[test]
+    fn content_before_and_after_a_details_block_still_shows() {
+        let source = "# Antes\n\n<details>\n<summary>s</summary>\n<p>c</p>\n</details>\n\n# Despues\n";
+        assert_eq!(heading_texts(&parse(source, None)), vec!["Antes".to_string(), "Despues".to_string()]);
     }
 
     #[test]
