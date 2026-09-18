@@ -27,7 +27,9 @@ tocar código.
 
 Estado: `ver-un-documento`, `enlaces-e-imagenes`, `front-matter-y-html` y
 `varios-documentos-en-pestanas` cerradas. `integracion-con-windows` abierta,
-la última feature del proyecto.
+sus tres historias pendientes — solo RF-03.1 (instancia única); RF-02
+(asociación de `.md`) queda para cuando exista la feature de distribución,
+decisión del usuario del 2026-09-18.
 
 El trabajo está dividido en cinco features, todas con artefactos ya. El
 orden y el reparto de requisitos entre ellas está en
