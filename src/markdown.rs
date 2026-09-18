@@ -6,7 +6,10 @@
 //! needs them not to break the rest of the document.
 
 use pulldown_cmark::{Alignment, HeadingLevel, Options, Parser, Tag, TagEnd};
-use std::iter::Peekable;
+use std::{
+    iter::Peekable,
+    path::{Path, PathBuf},
+};
 
 #[derive(Clone, Default)]
 pub struct SpanStyle {
@@ -16,6 +19,7 @@ pub struct SpanStyle {
     pub code: bool,
 }
 
+#[derive(Clone)]
 pub struct Span {
     pub text: String,
     pub style: SpanStyle,
@@ -25,6 +29,25 @@ pub struct Span {
     pub url: Option<String>,
 }
 
+/// An image reference (RF-11.1). `alt` is always available, for the case
+/// `render` can't show the image at all (CA-03.3, CA-03.4).
+pub struct ImageRef {
+    pub alt: String,
+    /// `dest` resolved against the document's directory, or `None` if it
+    /// couldn't be: no base directory was known, or `dest` is an `http(s)`
+    /// URL, which RNF-02.1 forbids fetching (AD-20).
+    pub resolved: Option<PathBuf>,
+}
+
+/// One piece of a paragraph's content, in document order. Plain text runs
+/// (`Span`) and images (`ImageRef`) are kept apart, rather than folding an
+/// image's alt text into the span stream, so `render` can show an actual
+/// image instead of its alt text standing in for it (AD-20).
+pub enum Inline {
+    Span(Span),
+    Image(ImageRef),
+}
+
 pub struct ListItem {
     pub checked: Option<bool>,
     pub children: Vec<Block>,
@@ -32,7 +55,7 @@ pub struct ListItem {
 
 pub enum Block {
     Heading(u8, Vec<Span>),
-    Paragraph(Vec<Span>),
+    Paragraph(Vec<Inline>),
     List { ordered: bool, start: u64, items: Vec<ListItem> },
     Quote(Vec<Block>),
     ThematicBreak,
@@ -40,11 +63,14 @@ pub enum Block {
     CodeBlock(String),
 }
 
-/// Parses Markdown source into a list of top-level blocks.
-pub fn parse(source: &str) -> Vec<Block> {
+/// Parses Markdown source into a list of top-level blocks. `base_dir` is the
+/// directory of the `.md` file being shown, used to resolve relative image
+/// paths (RF-11.1); pass `None` when there is no file on disk to resolve
+/// against (e.g. in isolation, as the tests below do).
+pub fn parse(source: &str, base_dir: Option<&Path>) -> Vec<Block> {
     let options = Options::ENABLE_TABLES | Options::ENABLE_STRIKETHROUGH | Options::ENABLE_TASKLISTS;
     let mut events = Parser::new_ext(source, options).peekable();
-    parse_blocks(&mut events)
+    parse_blocks(&mut events, base_dir)
 }
 
 type Events<'a> = Peekable<Parser<'a>>;
@@ -65,7 +91,7 @@ fn is_block_start(tag: &Tag) -> bool {
 /// Parses a sequence of blocks until the iterator is exhausted or the next
 /// event is an `End` that belongs to an enclosing caller (which does not
 /// consume it: the caller does, after this returns).
-fn parse_blocks(events: &mut Events) -> Vec<Block> {
+fn parse_blocks(events: &mut Events, base_dir: Option<&Path>) -> Vec<Block> {
     use pulldown_cmark::Event::*;
 
     let mut blocks = Vec::new();
@@ -82,24 +108,24 @@ fn parse_blocks(events: &mut Events) -> Vec<Block> {
                 events.next();
                 match tag {
                     Tag::Paragraph => {
-                        let spans = parse_inline(events);
+                        let inlines = parse_paragraph_inline(events, base_dir);
                         consume_end(events, |e| matches!(e, TagEnd::Paragraph));
-                        if !spans.is_empty() {
-                            blocks.push(Block::Paragraph(spans));
+                        if !inlines.is_empty() {
+                            blocks.push(Block::Paragraph(inlines));
                         }
                     }
                     Tag::Heading { level, .. } => {
-                        let spans = parse_inline(events);
+                        let spans = parse_inline_spans(events);
                         consume_end(events, |e| matches!(e, TagEnd::Heading(_)));
                         blocks.push(Block::Heading(heading_level(level), spans));
                     }
                     Tag::BlockQuote(_) => {
-                        let inner = parse_blocks(events);
+                        let inner = parse_blocks(events, base_dir);
                         consume_end(events, |e| matches!(e, TagEnd::BlockQuote(_)));
                         blocks.push(Block::Quote(inner));
                     }
                     Tag::List(start) => {
-                        let items = parse_list_items(events);
+                        let items = parse_list_items(events, base_dir);
                         consume_end(events, |e| matches!(e, TagEnd::List(_)));
                         blocks.push(Block::List {
                             ordered: start.is_some(),
@@ -140,17 +166,17 @@ fn parse_blocks(events: &mut Events) -> Vec<Block> {
             Some(Start(_)) => {
                 // Not a recognized block start: treat as an implicit paragraph
                 // (e.g. a tight list item's bare inline content).
-                let spans = parse_inline(events);
-                if !spans.is_empty() {
-                    blocks.push(Block::Paragraph(spans));
+                let inlines = parse_paragraph_inline(events, base_dir);
+                if !inlines.is_empty() {
+                    blocks.push(Block::Paragraph(inlines));
                 } else {
                     events.next();
                 }
             }
             _ => {
-                let spans = parse_inline(events);
-                if !spans.is_empty() {
-                    blocks.push(Block::Paragraph(spans));
+                let inlines = parse_paragraph_inline(events, base_dir);
+                if !inlines.is_empty() {
+                    blocks.push(Block::Paragraph(inlines));
                 } else {
                     events.next();
                 }
@@ -179,19 +205,20 @@ fn heading_level(level: HeadingLevel) -> u8 {
     }
 }
 
-/// Parses inline-level events (text and emphasis/strong/strikethrough/code)
-/// into a flat list of styled spans, stopping (without consuming) at the
-/// first event that is not inline-level.
-fn parse_inline(events: &mut Events) -> Vec<Span> {
+/// Parses inline-level events (text, emphasis/strong/strikethrough/code,
+/// links and images) into a flat list of `Inline`s, stopping (without
+/// consuming) at the first event that is not inline-level. Used for
+/// paragraphs, where an image is shown as an actual image (RF-11.1).
+fn parse_paragraph_inline(events: &mut Events, base_dir: Option<&Path>) -> Vec<Inline> {
     use pulldown_cmark::Event::*;
 
-    let mut spans = Vec::new();
+    let mut out = Vec::new();
     let mut style = SpanStyle::default();
-    // The URL of the link this text is currently inside, if any. Images are
-    // consumed the same way as links so their `End` doesn't leak out (see
-    // `parse_blocks`), but they don't carry a URL: showing the image itself
-    // is a later feature, so their alt text falls back to plain text.
+    // The URL of the link this text is currently inside, if any.
     let mut link: Option<String> = None;
+    // Set while inside a Start(Image)..End(Image) pair: its destination and
+    // the alt text accumulated from the Text events in between.
+    let mut image: Option<(String, String)> = None;
 
     loop {
         match events.peek() {
@@ -205,14 +232,20 @@ fn parse_inline(events: &mut Events) -> Vec<Span> {
         }
 
         match events.next().unwrap() {
-            Text(t) => spans.push(Span { text: t.into_string(), style: style.clone(), url: link.clone() }),
+            Text(t) => match &mut image {
+                Some((_, alt)) => alt.push_str(&t),
+                None => out.push(Inline::Span(Span { text: t.into_string(), style: style.clone(), url: link.clone() })),
+            },
             Code(t) => {
                 let mut s = style.clone();
                 s.code = true;
-                spans.push(Span { text: t.into_string(), style: s, url: link.clone() });
+                out.push(Inline::Span(Span { text: t.into_string(), style: s, url: link.clone() }));
             }
-            SoftBreak => spans.push(Span { text: " ".to_string(), style: style.clone(), url: link.clone() }),
-            HardBreak => spans.push(Span { text: "\n".to_string(), style: style.clone(), url: link.clone() }),
+            SoftBreak => match &mut image {
+                Some((_, alt)) => alt.push(' '),
+                None => out.push(Inline::Span(Span { text: " ".to_string(), style: style.clone(), url: link.clone() })),
+            },
+            HardBreak => out.push(Inline::Span(Span { text: "\n".to_string(), style: style.clone(), url: link.clone() })),
             Start(Tag::Emphasis) => style.italic = true,
             End(TagEnd::Emphasis) => style.italic = false,
             Start(Tag::Strong) => style.bold = true,
@@ -221,15 +254,45 @@ fn parse_inline(events: &mut Events) -> Vec<Span> {
             End(TagEnd::Strikethrough) => style.strikethrough = false,
             Start(Tag::Link { dest_url, .. }) => link = Some(dest_url.into_string()),
             End(TagEnd::Link) => link = None,
-            Start(Tag::Image { .. }) | End(TagEnd::Image) => {}
+            Start(Tag::Image { dest_url, .. }) => image = Some((dest_url.into_string(), String::new())),
+            End(TagEnd::Image) => {
+                let (dest, alt) = image.take().expect("End(Image) without a matching Start(Image)");
+                out.push(Inline::Image(ImageRef { resolved: resolve_image(base_dir, &dest), alt }));
+            }
             _ => unreachable!(),
         }
     }
 
-    spans
+    out
 }
 
-fn parse_list_items(events: &mut Events) -> Vec<ListItem> {
+/// The same inline grammar as `parse_paragraph_inline`, flattened to plain
+/// `Span`s: an image's alt text stands in for it, exactly as it did before
+/// this module could show an image at all. Used for headings and table
+/// cells, which stay text-only (AD-20) — RF-11.1's criteria only ever put an
+/// image in its own paragraph.
+fn parse_inline_spans(events: &mut Events) -> Vec<Span> {
+    parse_paragraph_inline(events, None)
+        .into_iter()
+        .map(|inline| match inline {
+            Inline::Span(span) => span,
+            Inline::Image(image) => Span { text: image.alt, style: SpanStyle::default(), url: None },
+        })
+        .collect()
+}
+
+/// Resolves an image's `dest` against the document's directory (RF-11.1).
+/// Returns `None` when there is nothing to resolve against, or when `dest`
+/// is an `http(s)` URL: RNF-02.1 forbids fetching it, so it always falls
+/// back to its alt text instead (AD-20).
+fn resolve_image(base_dir: Option<&Path>, dest: &str) -> Option<PathBuf> {
+    if dest.starts_with("http://") || dest.starts_with("https://") {
+        return None;
+    }
+    Some(base_dir?.join(dest))
+}
+
+fn parse_list_items(events: &mut Events, base_dir: Option<&Path>) -> Vec<ListItem> {
     use pulldown_cmark::Event::*;
 
     let mut items = Vec::new();
@@ -244,7 +307,7 @@ fn parse_list_items(events: &mut Events) -> Vec<ListItem> {
             _ => None,
         };
 
-        let children = parse_blocks(events);
+        let children = parse_blocks(events, base_dir);
         consume_end(events, |e| matches!(e, TagEnd::Item));
         items.push(ListItem { checked, children });
     }
@@ -278,7 +341,7 @@ fn parse_table_cells(events: &mut Events) -> Vec<Vec<Span>> {
     let mut cells = Vec::new();
     while let Some(Start(Tag::TableCell)) = events.peek() {
         events.next();
-        cells.push(parse_inline(events));
+        cells.push(parse_inline_spans(events));
         consume_end(events, |e| matches!(e, TagEnd::TableCell));
     }
     cells
@@ -306,29 +369,110 @@ mod tests {
     #[test]
     fn html_block_does_not_truncate_the_document() {
         let source = "# uno\n\n<div align=\"center\">hola</div>\n\n# dos\n";
-        assert_eq!(heading_texts(&parse(source)), vec!["uno".to_string(), "dos".to_string()]);
+        assert_eq!(heading_texts(&parse(source, None)), vec!["uno".to_string(), "dos".to_string()]);
+    }
+
+    fn image_in(inlines: &[Inline]) -> &ImageRef {
+        inlines
+            .iter()
+            .find_map(|inline| match inline {
+                Inline::Image(image) => Some(image),
+                _ => None,
+            })
+            .expect("falta la imagen")
     }
 
     #[test]
     fn link_and_image_stay_in_one_paragraph_with_the_rest_of_the_text() {
         let source = "un [enlace](https://x.dev) y ![alt](img/a.png) final\n";
-        let blocks = parse(source);
+        let blocks = parse(source, None);
 
-        let paragraphs: Vec<&Vec<Span>> = blocks
+        let paragraphs: Vec<&Vec<Inline>> = blocks
             .iter()
             .filter_map(|b| match b {
-                Block::Paragraph(spans) => Some(spans),
+                Block::Paragraph(inlines) => Some(inlines),
                 _ => None,
             })
             .collect();
-        assert_eq!(paragraphs.len(), 1, "el enlace no debe partir el párrafo en dos");
+        assert_eq!(paragraphs.len(), 1, "el enlace y la imagen no deben partir el párrafo en dos");
+        let inlines = paragraphs[0];
 
-        let spans = paragraphs[0];
-        let text: String = spans.iter().map(|s| s.text.as_str()).collect();
-        assert_eq!(text, "un enlace y alt final");
-        assert!(!text.contains("https://x.dev"), "la URL no debe aparecer en el cuerpo del documento");
+        // The image no longer folds its alt text into the span stream (that
+        // was the pre-HU-03 behavior, back when showing the image itself
+        // wasn't implemented yet): it becomes its own `Inline::Image`.
+        let span_texts: Vec<&str> = inlines
+            .iter()
+            .filter_map(|inline| match inline {
+                Inline::Span(span) => Some(span.text.as_str()),
+                Inline::Image(_) => None,
+            })
+            .collect();
+        assert_eq!(span_texts, vec!["un ", "enlace", " y ", " final"]);
+        assert!(
+            !span_texts.iter().any(|t| t.contains("https://x.dev")),
+            "la URL no debe aparecer en el cuerpo del documento"
+        );
 
-        let link_span = spans.iter().find(|s| s.text == "enlace").expect("falta el texto del enlace");
+        let link_span = inlines
+            .iter()
+            .filter_map(|inline| match inline {
+                Inline::Span(span) if span.text == "enlace" => Some(span),
+                _ => None,
+            })
+            .next()
+            .expect("falta el texto del enlace");
         assert_eq!(link_span.url.as_deref(), Some("https://x.dev"));
+
+        let image = image_in(inlines);
+        assert_eq!(image.alt, "alt");
+        assert_eq!(image.resolved, None, "sin base_dir no hay nada que resolver");
+    }
+
+    #[test]
+    fn a_lone_image_is_its_own_paragraph_not_mixed_with_text() {
+        // The common README pattern: an image alone on its own line. It
+        // must not need a surrounding text container to be shown.
+        let blocks = parse("![captura](img/foto.png)\n", None);
+        assert_eq!(blocks.len(), 1);
+        match &blocks[0] {
+            Block::Paragraph(inlines) => {
+                assert_eq!(inlines.len(), 1);
+                assert!(matches!(inlines[0], Inline::Image(_)));
+            }
+            _ => panic!("se esperaba un párrafo con la imagen"),
+        }
+    }
+
+    #[test]
+    fn image_path_resolves_against_the_documents_directory_not_the_cwd() {
+        let base_dir = Path::new("/docs/proyecto");
+        let blocks = parse("![captura](img/foto.png)\n", Some(base_dir));
+
+        let paragraphs: Vec<&Vec<Inline>> = blocks
+            .iter()
+            .filter_map(|b| match b {
+                Block::Paragraph(inlines) => Some(inlines),
+                _ => None,
+            })
+            .collect();
+        let image = image_in(paragraphs[0]);
+        assert_eq!(image.resolved.as_deref(), Some(Path::new("/docs/proyecto/img/foto.png")));
+    }
+
+    #[test]
+    fn a_remote_image_is_never_resolved_to_a_local_path() {
+        // RNF-02.1: MDView never requests a URL image, so there is no local
+        // path to load — it always falls back to the alt text (AD-20).
+        let base_dir = Path::new("/docs/proyecto");
+        let blocks = parse("![remota](https://example.com/foto.png)\n", Some(base_dir));
+
+        let paragraphs: Vec<&Vec<Inline>> = blocks
+            .iter()
+            .filter_map(|b| match b {
+                Block::Paragraph(inlines) => Some(inlines),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(image_in(paragraphs[0]).resolved, None);
     }
 }

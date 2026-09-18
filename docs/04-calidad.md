@@ -515,3 +515,45 @@ confirmación vino de mirar la pantalla, no de leer el código.
 
 **Estado de la historia:** verificada. Los cinco criterios pasan por
 observación directa.
+
+---
+
+## HU-03 (enlaces-e-imagenes) — Ver las imágenes que el documento referencia
+
+Verificado el 2026-09-18, en la misma máquina de desarrollo. `cargo test`
+(8 casos: los 2 de HU-01/HU-02 más 6 propios de esta historia sobre
+`Inline`/`ImageRef`) en verde. Compilado `target\debug\mdview.exe`.
+
+Documento de prueba: `pruebas/hu-03-imagenes/documento.md`, con una imagen
+normal (`img/foto.png`, 400×250, generada con `System.Drawing` de .NET), una
+imagen más ancha que la columna de lectura (`img/ancha.png`, 2200×300), una
+ruta que no existe (`img/no-existe.png`) y un archivo con extensión `.png`
+que en realidad es texto plano (`img/no-es-imagen.png`), seguidas de un
+encabezado y un párrafo final. Lanzado con `-WorkingDirectory
+D:\Code\Rust\MDView`, un directorio distinto al que contiene el documento
+(`pruebas\hu-03-imagenes`), para que CA-03.2 se comprobara de verdad y no
+por coincidencia.
+
+| Criterio | Resultado | Evidencia |
+| --- | --- | --- |
+| CA-03.1 — Imagen con ruta relativa mostrada en su punto del documento | pasa | Captura de esta sesión: `foto.png` aparece entre los dos párrafos donde el documento la referencia, no al principio ni al final. |
+| CA-03.2 — Sigue mostrándose invocando MDView desde otro directorio | pasa | La captura es precisamente de ese lanzamiento: proceso iniciado con `-WorkingDirectory D:\Code\Rust\MDView`, documento en `pruebas\hu-03-imagenes\documento.md`; ambas imágenes válidas se ven. |
+| CA-03.3 — Ruta que no corresponde a ningún archivo muestra su texto alternativo, y el resto del documento sigue | pasa | Captura: bajo «Imágenes que fallan», el texto «esta ruta no existe» aparece en el lugar de `img/no-existe.png`; el encabezado «Final del documento» y su párrafo se siguen mostrando debajo. |
+| CA-03.4 — Archivo existente no decodificable muestra su texto alternativo, sin terminar ni dejar de responder | pasa | Misma captura: «este archivo no es una imagen decodificable» se muestra en el lugar de `img/no-es-imagen.png` (un `.png` que es texto plano). `Get-Process mdview` → `Responding: True` tras el scroll. |
+| CA-03.5 — Imagen más ancha que la columna se ajusta a ese ancho, sin desbordar ni pedir scroll horizontal | pasa | Captura y zoom sobre la franja de `ancha.png`: la imagen de 2200×300 se ve completa dentro del ancho de la ventana, proporción mantenida, sin tocar los bordes ni aparecer barra de scroll horizontal. |
+
+**Prueba de regresión.** `cargo test`: 8/8 en verde, incluyendo los 2 casos
+de HU-01/HU-02 (`markdown.rs` no perdió su comportamiento previo con enlaces
+y bloques HTML).
+
+**Nota de proceso — decisión de arquitectura nueva.** Mostrar una imagen de
+verdad (no su texto alternativo haciendo de texto, que era el comportamiento
+heredado de HU-01) exigió cambiar `Block::Paragraph` de `Vec<Span>` a
+`Vec<Inline>`, resolver la ruta relativa al directorio del documento dentro
+de `markdown::parse`, y decidir cómo se dibuja una imagen mezclada con texto
+en el mismo párrafo (GPUI no permite intercalar una imagen de verdad dentro
+de un `StyledText`). El razonamiento completo, con las alternativas
+descartadas, está en AD-20.
+
+**Estado de la historia:** verificada. Los cinco criterios pasan por
+observación directa.

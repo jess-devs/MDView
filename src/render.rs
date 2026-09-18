@@ -12,7 +12,7 @@ use gpui_component::{
 
 use crate::{
     app::AppState,
-    markdown::{Block, ListItem, Span, SpanStyle},
+    markdown::{Block, ImageRef, Inline, ListItem, Span, SpanStyle},
 };
 
 /// Maximum reading width, per AD-08.
@@ -149,16 +149,7 @@ fn render_block(
                 .child(render_text(spans, true, ("text-block", id), cx))
                 .into_any_element()
         }
-        Block::Paragraph(spans) => {
-            let id = *text_index;
-            *text_index += 1;
-            div()
-                .w_full()
-                .whitespace_normal()
-                .text_size(px(BODY_SIZE))
-                .child(render_text(spans, false, ("text-block", id), cx))
-                .into_any_element()
-        }
+        Block::Paragraph(inlines) => render_paragraph(inlines, text_index, cx),
         Block::ThematicBreak => div().w_full().h(px(1.0)).bg(cx.theme().border).into_any_element(),
         Block::Quote(blocks) => {
             let mut quote = div()
@@ -296,6 +287,82 @@ fn render_table_row(cells: &[Vec<Span>], is_header: bool, text_index: &mut usize
     }
 
     row
+}
+
+/// Renders a paragraph's content in document order (CA-03.1): consecutive
+/// text runs are grouped into one `render_text` block each, same as before
+/// images existed, and each image is its own element in between (AD-20).
+/// GPUI's `StyledText` can't mix an actual image into a run of text, so a
+/// paragraph that mixes both renders as stacked blocks rather than flowing
+/// inline — the common case this feature's criteria test, an image alone on
+/// its own line, still renders as just that one image, nothing stacked
+/// around it.
+fn render_paragraph(inlines: &[Inline], text_index: &mut usize, cx: &App) -> AnyElement {
+    if let [Inline::Image(image)] = inlines {
+        return render_image(image);
+    }
+
+    let mut children: Vec<AnyElement> = Vec::new();
+    let mut run: Vec<Span> = Vec::new();
+
+    for inline in inlines {
+        match inline {
+            Inline::Span(span) => run.push(span.clone()),
+            Inline::Image(image) => {
+                if !run.is_empty() {
+                    children.push(render_text_block(&run, text_index, cx));
+                    run.clear();
+                }
+                children.push(render_image(image));
+            }
+        }
+    }
+    if !run.is_empty() {
+        children.push(render_text_block(&run, text_index, cx));
+    }
+
+    let mut column = div().v_flex().gap_2().w_full();
+    for child in children {
+        column = column.child(child);
+    }
+    column.into_any_element()
+}
+
+/// A run of plain text, styled and sized exactly like a `Block::Paragraph`
+/// always has been — factored out of `render_block`'s old paragraph arm so
+/// `render_paragraph` can call it once per text run instead of once per
+/// paragraph.
+fn render_text_block(spans: &[Span], text_index: &mut usize, cx: &App) -> AnyElement {
+    let id = *text_index;
+    *text_index += 1;
+    div()
+        .w_full()
+        .whitespace_normal()
+        .text_size(px(BODY_SIZE))
+        .child(render_text(spans, false, ("text-block", id), cx))
+        .into_any_element()
+}
+
+/// Renders an image (RF-11.1), or its alt text if it can't be shown:
+/// `resolved` is `None` (a remote URL, or no document directory to resolve
+/// against — RNF-02.1), or loading it fails for any reason (CA-03.3,
+/// CA-03.4) — a missing file, a permission error, a file that isn't a
+/// decodable image. `img()`'s own loader classifies all of those as one
+/// `ImageCacheError` and this only needs the fallback, not which one it was.
+///
+/// `with_fallback`'s closure can't borrow `cx` (it isn't `'static`), so the
+/// fallback is a plain, unstyled text child rather than going through
+/// `render_spans` — CA-03.3 only requires the alt text to be shown, not
+/// styled like body text.
+fn render_image(image: &ImageRef) -> AnyElement {
+    let alt = image.alt.clone();
+    match &image.resolved {
+        Some(path) => img(path.clone())
+            .max_w(px(READING_WIDTH))
+            .with_fallback(move || div().child(alt.clone()).into_any_element())
+            .into_any_element(),
+        None => div().whitespace_normal().text_size(px(BODY_SIZE)).child(alt).into_any_element(),
+    }
 }
 
 /// Builds the styled text for a run of spans, plus the byte range and URL of

@@ -91,7 +91,8 @@ en una carpeta que contenga, a su lado, un subdirectorio con las imágenes.
 5. CA-03.5 — Una imagen más ancha que la columna de lectura se muestra ajustada a
    ese ancho, sin desbordarla ni obligar a desplazarse horizontalmente.
 
-**Estado.** pendiente
+**Estado.** verificada. Los cinco criterios pasan por observación; el detalle
+está en `docs/04-calidad.md`.
 
 ---
 

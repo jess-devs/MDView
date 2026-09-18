@@ -49,7 +49,13 @@ pub fn run(start: SystemTime) {
         let mut pending_notice = None;
         match path.as_deref() {
             Some(path) => match document::load(path) {
-                Ok(text) => blocks = markdown::parse(&text),
+                // The document's directory, not the process's (CA-03.2):
+                // relative image paths (RF-11.1) resolve against where the
+                // `.md` file lives, wherever MDView was invoked from.
+                Ok(text) => {
+                    let base_dir = Path::new(path).parent();
+                    blocks = markdown::parse(&text, base_dir);
+                }
                 Err(error) => pending_notice = Some(error_message(path, error)),
             },
             None => {}

@@ -1,7 +1,7 @@
 # Decisiones — enlaces-e-imagenes
 
-> Estado: en construcción, HU-01 y HU-02 implementadas
-> Última actualización: 2026-08-24
+> Estado: en construcción, HU-01 a HU-03 implementadas
+> Última actualización: 2026-09-18
 > Modo: new-feature
 
 Aquí se escribe toda decisión de esta feature que alguien pueda querer revertir
@@ -311,28 +311,109 @@ Estado: activa
 
 ---
 
-## Pendientes de esta feature
+## AD-20 — Cómo se muestran las imágenes: `gpui::img()`, tipo `Inline` propio, resolución en `markdown::parse`
 
-- **Dónde vive la ruta del archivo abierto** (RF-11.1, HU-03). Hoy
-  `document::load` devuelve solo el texto, y resolver una ruta relativa exige
-  saber en qué directorio está el `.md`. Toca la frontera entre `document`,
-  `markdown` y `render` que describe `../../03-arquitectura.md`.
-- **Con qué se decodifican las imágenes** (RF-11.1, HU-03). Sea lo que sea,
-  `../../03-arquitectura.md` exige que ninguna dependencia que abra conexiones
-  entre sin justificarlo, y RNF-02.1 fija cero conexiones. Leído en el código de
-  `gpui` 0.2.2 el 2026-08-24, hay dos cosas que condicionan esta decisión:
+Fecha: 2026-09-18
 
-  1. **`img()` construido desde una cadena puede salir a la red.** En
-     `elements/img.rs`, `impl From<&str> for ImageSource` manda la cadena a
-     `Resource::Uri` si parsea como URI, y la carga de `Resource::Uri` hace
-     `client.get(...)`: una petición HTTP real. `Resource::Path` hace `fs::read`.
-     La conclusión para HU-03 es que la ruta hay que resolverla a un `PathBuf`
-     absoluto y pasar eso, nunca el destino crudo que venga del Markdown.
-  2. **Hoy MDView no puede hacer peticiones, y nadie lo decidió.** `src/app.rs`
-     usa `Application::new()`, y el `App` por omisión instala `NullHttpClient`,
-     cuyo `send` devuelve error en lugar de conectarse. Eso respalda RNF-02.1 de
-     forma estructural, pero es una propiedad accidental: conviene convertirla en
-     decisión registrada al abrir HU-03 o HU-04, porque cualquiera puede añadir
-     `with_http_client` por un motivo razonable y romper RNF-02.1 en silencio.
-     **No es evidencia para dar CA-04.1 por `pasa`**: que una biblioteca
-     garantice algo no es observación.
+**Contexto.** RF-11.1 exige mostrar una imagen referenciada por ruta relativa
+al directorio del `.md` (no al directorio de invocación, CA-03.2), y mostrar
+el texto alternativo cuando no se pueda —archivo inexistente, sin permiso, o
+no decodificable— sin que el resto del documento deje de verse (CA-03.3,
+CA-03.4). Los dos «Pendientes» que dejó la sesión anterior ya estaban
+investigados y se resuelven aquí.
+
+**Qué decodifica la imagen.** `gpui::img(source)`, ya presente de forma
+transitiva (`image` 0.25.10 entra por `gpui`/`gpui-component`, no por una
+dependencia añadida a mano). Confirmado leyendo `elements/img.rs` de
+`gpui` 0.2.2 el 2026-08-24 y otra vez hoy: `ImageSource::Resource(Resource::Path(_))`
+carga con `fs::read` sin ningún cliente HTTP de por medio; `Resource::Uri`
+es la única variante que llama a `client.get(...)`, y solo se alcanza si
+`img()` se construye **desde una cadena** (`impl From<&str> for ImageSource`
+intenta interpretarla como URI antes que como ruta). Por eso `render::render_image`
+nunca llama a `img(String)`: siempre `img(PathBuf)` — `impl From<PathBuf> for
+ImageSource` va directo a `Resource::Path`, sin pasar por esa ambigüedad.
+`fs::read` ocurre dentro de `gpui`, no de `document` ni de `render`: la
+frontera de `03-arquitectura.md` («`render` no conoce el sistema de
+archivos») se mantiene porque `render` nunca abre el archivo él mismo, solo
+le entrega a `gpui` una ruta ya resuelta.
+
+**Dónde vive la ruta del documento y quién resuelve.** `app::run` calcula
+`Path::new(path).parent()` —el directorio del `.md`, no `env::current_dir()`,
+que es justo la distinción que exige CA-03.2— y se lo pasa a
+`markdown::parse(source, base_dir)`. La resolución (unir `base_dir` con la
+cadena que trae el Markdown) ocurre **dentro de `markdown`**, no en `app` ni
+en `render`: es la única función que ya tiene ambos datos —el texto del
+`.md` y, ahora, su directorio— en el mismo sitio, en el mismo momento en que
+construye el árbol de elementos. `Path::join` es cómputo puro (no toca
+disco), así que no contradice que `markdown` «no conozca el sistema de
+archivos» en el sentido que le importa a esa frase: no lee nada, no abre
+nada. `document` no cambia: sigue sin saber nada de rutas de imagen.
+
+**Por qué una imagen `http`/`https` nunca se resuelve a una ruta.**
+`01-alcance.md` y RNF-02.1 ya lo decidían; aquí se hace estructural:
+`markdown::resolve_image` devuelve `None` para cualquier destino que empiece
+por `http://` o `https://`, **antes** de intentar `Path::join` con él (que
+además produciría una ruta sin sentido). `render::render_image` con
+`resolved: None` nunca llama a `img()`: siempre muestra el texto
+alternativo. No hay ninguna vía por la que una URL remota llegue a `img()`.
+
+**Cómo entra la imagen en el árbol de elementos: `Inline`, no `Span` con un
+campo más.** RF-08.2 (HU-01) resolvió los enlaces añadiendo un campo `url` a
+`Span` (AD-16), porque un enlace es texto con una propiedad más. Una imagen
+no es texto: mostrarla como una imagen de verdad —no su texto alternativo
+haciendo de texto, que es lo que hacía el código hasta hoy— significa que el
+párrafo que la contiene deja de ser una sola tira de texto. `Block::Paragraph`
+pasa de `Vec<Span>` a `Vec<Inline>`, con `Inline::Span(Span)` e
+`Inline::Image(ImageRef)`. Encabezados y celdas de tabla **no** ganan este
+cambio: `parse_inline_spans` sigue produciendo `Vec<Span>` para ellos,
+aplanando cualquier imagen a su texto alternativo (el comportamiento que ya
+existía). Ninguna historia de esta feature pone una imagen en un encabezado o
+una celda; ampliarlo el día que haga falta es un cambio local a esa función.
+
+**Cómo se dibuja una imagen mezclada con texto en el mismo párrafo.**
+`StyledText` de GPUI no puede intercalar una imagen de verdad dentro de una
+tira de texto (es texto con estilos por tramo, no un flujo de nodos mixto).
+`render::render_paragraph` agrupa los `Inline::Span` consecutivos en un
+bloque de texto (igual que antes de esta historia) y cada `Inline::Image` en
+su propio elemento `img()`, apilados en orden. El caso que piden los
+criterios de HU-03 —una imagen sola en su propio párrafo, el patrón habitual
+de un README— no pasa por ese apilado: `render_paragraph` lo detecta como
+caso especial (`[Inline::Image(image)]`) y devuelve solo la imagen, sin ningún
+contenedor de texto alrededor. Una imagen mezclada con texto en el mismo
+párrafo se ve como texto y luego la imagen debajo, no en la misma línea: es
+una degradación conocida, no probada por ningún CA de esta historia.
+
+**Ajuste al ancho de columna (CA-03.5).** `render_image` fija
+`.max_w(px(READING_WIDTH))` sobre el elemento `img()`. `gpui::img()` calcula
+`style.aspect_ratio` a partir del tamaño decodificado antes de pedirle el
+layout a Taffy (visto en `elements/img.rs`); combinado con `max_size.width`,
+Taffy reduce ambas dimensiones manteniendo la proporción cuando el ancho
+natural excede el máximo — el mismo mecanismo que `max-width` + `aspect-ratio`
+en CSS. Verificado por observación, no solo leído: ver el resultado de
+HU-03 en `04-calidad.md`.
+
+**Consecuencias.**
+
+- `Span` gana `#[derive(Clone)]`: `render_paragraph` necesita clonar los
+  spans que va agrupando en un `Vec` propio antes de pasarlos a
+  `render_text`, porque itera `&[Inline]` prestado.
+- Los tres tests de `markdown.rs` que ya existían para `parse(source)` pasan
+  a `parse(source, None)`; el test que cubría enlace+imagen en el mismo
+  párrafo se reescribió porque la imagen ya no se aplana a texto (ver el
+  commit). Se añadieron tres tests nuevos: imagen sola en su propio párrafo,
+  resolución de ruta relativa contra `base_dir`, y que una URL remota nunca
+  resuelve a una ruta local.
+- `ImageCacheError` de `gpui` distingue archivo-no-encontrado, sin-permiso y
+  formato-no-decodificable, pero `render_image` no lo inspecciona: los tres
+  casos de CA-03.3/CA-03.4 piden el mismo resultado observable —el texto
+  alternativo—, así que no hay necesidad de diferenciarlos. Si una historia
+  futura pidiera un mensaje distinto por causa, ahí se abriría esa
+  distinción, no antes.
+- El cierre («fallback» del elemento `img()`) es una función `Fn() -> AnyElement`
+  sin acceso al `cx` de GPUI (no es `'static`), así que el texto alternativo
+  se muestra sin pasar por `render_spans`/el tema: un `div().child(alt)` liso.
+  No es un problema para CA-03.3 —pide que se muestre el texto, no que tenga
+  un estilo concreto— pero es la razón de que ese texto no lleve el color de
+  cuerpo del tema como el resto del documento.
+
+Estado: activa

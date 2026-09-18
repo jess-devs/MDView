@@ -22,7 +22,8 @@ tocar código.
 | `docs/features/enlaces-e-imagenes/` | Ídem de la segunda: enlaces externos e imágenes locales. |
 
 Estado: `ver-un-documento` cerrada, sus siete historias verificadas.
-`enlaces-e-imagenes` abierta, sus cinco historias pendientes.
+`enlaces-e-imagenes` abierta: HU-01 a HU-03 verificadas, HU-04 y HU-05
+pendientes.
 
 El trabajo está dividido en cinco features. Solo las dos primeras tienen
 artefactos; el orden de las cinco y el reparto de requisitos entre ellas está en
