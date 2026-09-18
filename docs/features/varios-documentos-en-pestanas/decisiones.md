@@ -1,6 +1,6 @@
 # Decisiones — varios-documentos-en-pestanas
 
-> Estado: borrador
+> Estado: cerrada, sus cuatro historias verificadas
 > Última actualización: 2026-09-18
 > Modo: new-feature
 

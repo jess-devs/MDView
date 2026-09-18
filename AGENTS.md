@@ -4,8 +4,8 @@ Visor de archivos Markdown para escritorio, escrito en Rust con GPUI. Abre
 documentos `.md` renderizados en pestañas, con el objetivo de sustituir la
 costumbre de abrir un IDE solo para leer un archivo de texto.
 
-Estado: tres features cerradas (diecisiete historias verificadas), la cuarta
-en curso. Ver la tabla de abajo.
+Estado: cuatro features cerradas (veintiuna historias verificadas), la
+quinta y última en curso. Ver la tabla de abajo.
 
 ## Documentación
 
@@ -23,14 +23,14 @@ tocar código.
 | `docs/features/enlaces-e-imagenes/` | Ídem de la segunda: enlaces externos e imágenes locales. |
 | `docs/features/front-matter-y-html/` | Ídem de la tercera: front matter como tabla de propiedades y un subconjunto de HTML incrustado. |
 | `docs/features/varios-documentos-en-pestanas/` | Ídem de la cuarta: varios documentos abiertos a la vez, en pestañas, y navegación entre ellos (RF-14). |
+| `docs/features/integracion-con-windows/` | Ídem de la quinta y última: asociación de `.md`, doble clic e instancia única. |
 
-Estado: `ver-un-documento`, `enlaces-e-imagenes` y `front-matter-y-html`
-cerradas. `varios-documentos-en-pestanas` abierta, sus cuatro historias
-pendientes. Siguiente tras esta: `integracion-con-windows`, ver
-`docs/features/enlaces-e-imagenes/plan.md`.
+Estado: `ver-un-documento`, `enlaces-e-imagenes`, `front-matter-y-html` y
+`varios-documentos-en-pestanas` cerradas. `integracion-con-windows` abierta,
+la última feature del proyecto.
 
-El trabajo está dividido en cinco features. Las cuatro primeras tienen
-artefactos; el orden de las cinco y el reparto de requisitos entre ellas está en
+El trabajo está dividido en cinco features, todas con artefactos ya. El
+orden y el reparto de requisitos entre ellas está en
 `docs/features/enlaces-e-imagenes/plan.md`.
 
 ## Reglas
