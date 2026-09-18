@@ -76,12 +76,10 @@ párrafo que mezcla las ocho etiquetas con texto Markdown normal alrededor.
    `<span>`— no muestra su marcado, pero sí el texto que contiene, y el resto
    del párrafo se sigue mostrando.
 
-**Estado.** en curso. Seis de los siete criterios pasan por observación
-completa; CA-02.4 pasa en su parte visual (el enlace se ve distinguible) y
-en que el clic llega a MDView y el navegador reacciona (procesos nuevos
-justo después), pero falta la confirmación visual de qué pestaña abrió —
-bloqueada por permisos del entorno de esta sesión, no por el código — ver
-`docs/04-calidad.md`.
+**Estado.** verificada. Los siete criterios pasan por observación — seis
+por esta sesión y CA-02.4 (la apertura del navegador) directamente por el
+usuario, que confirmó que un clic abre `https://example.com/desde-html`.
+El detalle está en `docs/04-calidad.md`.
 
 ---
 

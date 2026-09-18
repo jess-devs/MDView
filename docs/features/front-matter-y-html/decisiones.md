@@ -1,6 +1,6 @@
 # Decisiones — front-matter-y-html
 
-> Estado: borrador
+> Estado: cerrada, sus cinco historias verificadas
 > Última actualización: 2026-09-18
 > Modo: new-feature
 

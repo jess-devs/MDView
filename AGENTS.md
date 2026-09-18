@@ -25,8 +25,8 @@ tocar código.
 
 Estado: `ver-un-documento` cerrada, sus siete historias verificadas.
 `enlaces-e-imagenes` cerrada, sus cinco historias verificadas.
-`front-matter-y-html` abierta: HU-01, HU-03, HU-04 y HU-05 verificadas;
-HU-02 en curso, con un matiz pendiente en CA-02.4 (ver `docs/04-calidad.md`).
+`front-matter-y-html` cerrada, sus cinco historias verificadas. Siguiente:
+`varios-documentos-en-pestanas`, ver `docs/features/enlaces-e-imagenes/plan.md`.
 
 El trabajo está dividido en cinco features. Las tres primeras tienen
 artefactos; el orden de las cinco y el reparto de requisitos entre ellas está en
