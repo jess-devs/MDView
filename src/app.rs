@@ -157,3 +157,27 @@ pub fn activate_link(url: &str) {
         let _ = open::that_detached(url);
     }
 }
+
+/// Closes one tab (RF-05.1). Returns `true` when it was the only one open
+/// (RF-07.1): the caller is responsible for actually quitting, since only
+/// it has the `App`/`Context` to do that with — this only touches `state`.
+/// An out-of-range `ix` does nothing and returns `false`, the same
+/// defensive check as `render_tab_bar`'s switch handler (AD-26).
+pub fn close_tab(state: &mut AppState, ix: usize) -> bool {
+    if ix >= state.tabs.len() {
+        return false;
+    }
+    state.tabs.remove(ix);
+    if state.tabs.is_empty() {
+        return true;
+    }
+    if ix < state.active_tab {
+        state.active_tab -= 1;
+    } else if state.active_tab >= state.tabs.len() {
+        state.active_tab = state.tabs.len() - 1;
+    }
+    // ix == active_tab and still in range: active_tab now refers to what
+    // was the next tab, which is exactly the "closing the active tab
+    // activates its neighbor" behaviour CA-03.2 asks for — no change needed.
+    false
+}

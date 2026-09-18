@@ -950,3 +950,35 @@ patrón para que un enlace a otro `.md` añada o active una pestaña.
 
 **Estado de la historia:** verificada. Los tres criterios pasan por
 observación directa.
+
+---
+
+## HU-03 (varios-documentos-en-pestanas) — Cerrar una pestaña
+
+Verificado el 2026-09-18, en la misma máquina de desarrollo. `cargo test`:
+31/31 en verde, sin casos nuevos. Compilado `target\debug\mdview.exe`.
+
+Documentos de prueba: los mismos tres de HU-01/HU-02.
+
+| Criterio | Resultado | Evidencia |
+| --- | --- | --- |
+| CA-03.1 — Cerrar una pestaña que no es la activa no afecta a las demás | pasa | Captura: con «-a» activa, clic en el «×» de «-c»: quedan «-a» (activa, «Documento A» sin cambios) y «-b». |
+| CA-03.2 — Cerrar la pestaña activa deja otra activa | pasa | Captura: clic en el «×» de «-a» (la activa): queda «-b», ahora activa, con «Documento B» visible. |
+| CA-03.3 — Cerrar la única pestaña termina la aplicación | pasa | Clic en el «×» de «-b», la única que quedaba: `Get-Process mdview` no encuentra el proceso inmediatamente después. |
+
+**Prueba de regresión.** `cargo test`: 31/31 en verde.
+
+**Nota de proceso — el icono de cerrar no se veía.** El primer intento usó
+`Button::icon(IconName::Close)`; compiló y el clic cerraba la pestaña
+correcta —confirmado antes de cambiar nada—, pero el glifo no se veía en
+pantalla: un cuadrado gris vacío. `gpui_component::init(cx)` no registra
+ningún origen de assets para sus SVG de icono (leído en su código fuente:
+`init` no llama a nada parecido a `set_asset_source`), así que resolver
+`icons/close.svg` no tiene de dónde. La alternativa —embeber el set de
+iconos de `gpui-component` en MDView para un solo botón— era más peso del
+que este botón necesita; se cambió a `Button::label("×")`, un glifo de
+texto sin ninguna dependencia de assets, y se comprobó por observación que
+ahora sí se ve.
+
+**Estado de la historia:** verificada. Los tres criterios pasan por
+observación directa.

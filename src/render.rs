@@ -5,6 +5,7 @@ use std::ops::Range;
 
 use gpui::*;
 use gpui_component::{
+    button::{Button, ButtonVariants},
     notification::Notification,
     scroll::{ScrollableElement, ScrollbarAxis},
     tab::{Tab, TabBar},
@@ -99,11 +100,13 @@ impl Render for DocumentView {
 /// function only reaches through the view's own `Entity` (AD-26) — a plain
 /// `&App` in scope here isn't enough, the way it was for `app::activate_link`.
 fn render_tab_bar(tabs: &[crate::app::DocumentTab], active_tab: usize, view: Entity<DocumentView>) -> impl IntoElement {
+    let close_view = view.clone();
     TabBar::new("document-tabs")
         .selected_index(active_tab)
-        .children(tabs.iter().map(|tab| {
+        .children(tabs.iter().enumerate().map(|(ix, tab)| {
             let label = tab.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-            Tab::new().label(label)
+            let close_view = close_view.clone();
+            Tab::new().label(label).suffix(render_close_tab_button(ix, close_view))
         }))
         .on_click(move |ix, _window, cx| {
             let ix = *ix;
@@ -114,6 +117,28 @@ fn render_tab_bar(tabs: &[crate::app::DocumentTab], active_tab: usize, view: Ent
                 }
             });
         })
+}
+
+/// Closes tab `ix` (RF-05.1, RF-07.1). Its own click handler, not
+/// `TabBar::on_click`'s: that one only ever reports which tab was clicked,
+/// with no way to tell the close button apart from the rest of the tab.
+/// Reuses the switching pattern from AD-26 — `Entity<DocumentView>::update`
+/// — for the same reason: closing a tab mutates `AppState`.
+fn render_close_tab_button(ix: usize, view: Entity<DocumentView>) -> impl IntoElement {
+    // A plain "×" glyph, not `IconName::Close`: gpui-component's bundled
+    // icon SVGs resolve through an asset source MDView never registers (it
+    // has no reason to embed the whole icon set for one button), so the
+    // icon would render blank. Confirmed by observation, not assumed —
+    // ver CA-03.1 en 04-calidad.md.
+    Button::new(("close-tab", ix)).label("×").ghost().xsmall().on_click(move |_event, _window, cx| {
+        view.update(cx, |view, cx| {
+            if crate::app::close_tab(&mut view.state, ix) {
+                cx.quit();
+            } else {
+                cx.notify();
+            }
+        });
+    })
 }
 
 /// The window shown when MDView is launched without a file (RF-19).

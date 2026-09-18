@@ -76,7 +76,8 @@ de un documento que ya no necesito, para no acumular pestañas sin usar.
    otra pestaña como activa y su documento visible.
 3. CA-03.3 — Cerrar la única pestaña abierta termina la aplicación.
 
-**Estado.** pendiente
+**Estado.** verificada. Los tres criterios pasan por observación; el
+detalle está en `docs/04-calidad.md`.
 
 ---
 
