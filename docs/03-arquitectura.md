@@ -20,20 +20,23 @@ frontera es lo que permite razonar sobre el contenido sin arrancar una ventana.
 
 ## Fronteras
 
-Cuatro módulos. La regla que los ordena es que **GPUI vive en uno solo**.
+Cinco módulos, desde AD-22. La regla que los ordena es que **GPUI vive en uno
+solo**.
 
 | Módulo | De qué es dueño | Qué no puede conocer |
 | --- | --- | --- |
 | `document` | Leer el archivo del disco, decidir si es texto, producir el documento o el error de RF-17. | GPUI, `gpui-component`, y qué aspecto tendrá nada. |
-| `markdown` | Convertir el texto en un árbol de elementos propio: encabezados, listas, tablas, bloques de código. | GPUI y `gpui-component`. Tampoco sabe de colores, tamaños ni fuentes. |
-| `render` | Traducir el árbol de elementos a componentes en pantalla, y el tema. | El sistema de archivos y la sintaxis de Markdown. Recibe elementos, no texto. |
-| `app` | Arranque, argumentos, estado de la aplicación, ventana. | Los detalles de los tres anteriores; los coordina, no los sustituye. |
+| `markdown` | Convertir el texto en un árbol de elementos propio: encabezados, listas, tablas, bloques de código, front matter. | GPUI y `gpui-component`. Tampoco sabe de colores, tamaños ni fuentes. |
+| `html` | Interpretar una etiqueta HTML del subconjunto cerrado de RF-13.1 (nombre, atributos, apertura/cierre), sin construir ningún árbol de documento. | GPUI y `gpui-component`, igual que `markdown`. Tampoco sabe qué significa una etiqueta para el árbol de elementos: eso lo decide `markdown`, que es quien lo llama. |
+| `render` | Traducir el árbol de elementos a componentes en pantalla, y el tema. | El sistema de archivos y la sintaxis de Markdown o de HTML. Recibe elementos, no texto. |
+| `app` | Arranque, argumentos, estado de la aplicación, ventana. | Los detalles de los cuatro anteriores; los coordina, no los sustituye. |
 
 La consecuencia que importa: si algún día se cambia `gpui-component` por otra
-cosa, o se añade Linux, el trabajo cae dentro de `render` y `app`. `document` y
-`markdown` no se tocan. Si en cambio se descubre que el árbol de elementos tiene
-que conocer detalles de dibujo para funcionar, esa frontera estaba mal puesta y
-hay que registrarlo como decisión nueva, no ir agujereándola en silencio.
+cosa, o se añade Linux, el trabajo cae dentro de `render` y `app`. `document`,
+`markdown` y `html` no se tocan. Si en cambio se descubre que el árbol de
+elementos tiene que conocer detalles de dibujo para funcionar, esa frontera
+estaba mal puesta y hay que registrarlo como decisión nueva, no ir
+agujereándola en silencio.
 
 ## Convenciones
 
@@ -79,3 +82,4 @@ que le faltan entradas es peor que no tener índice.
 | AD-19 | Con qué se abre un enlace externo: crate `open`, función `that_detached`, sin fijar versión exacta | `features/enlaces-e-imagenes/decisiones.md` | activa |
 | AD-20 | Cómo se muestran las imágenes: `gpui::img()`, tipo `Inline` propio, resolución en `markdown::parse` | `features/enlaces-e-imagenes/decisiones.md` | activa |
 | AD-21 | Front matter: extracción propia sobre el texto crudo, no `ENABLE_YAML_STYLE_METADATA_BLOCKS` | `features/front-matter-y-html/decisiones.md` | activa |
+| AD-22 | Intérprete de HTML incrustado: módulo `html` propio, una etiqueta por evento | `features/front-matter-y-html/decisiones.md` | activa |

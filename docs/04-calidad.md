@@ -710,3 +710,52 @@ de prueba habría mostrado una tabla donde no debía.
 
 **Estado de la historia:** verificada. Los cinco criterios pasan por
 observación directa.
+
+---
+
+## HU-02 (front-matter-y-html) — Ver texto de HTML incrustado con el formato equivalente
+
+Verificado el 2026-09-18, en la misma máquina de desarrollo. `cargo test`
+(21 casos: los 9 anteriores más 7 de `html::parse_tag` y 5 de la
+interpretación de etiquetas en línea) en verde. Compilado
+`target\debug\mdview.exe`.
+
+Documento de prueba: `pruebas/hu-02-html-en-linea/documento.md`, un párrafo
+que mezcla las ocho etiquetas de esta historia con texto Markdown normal
+alrededor, y `img/foto.png` (200×120, generada con `System.Drawing`) para el
+`<img>`.
+
+| Criterio | Resultado | Evidencia |
+| --- | --- | --- |
+| CA-02.1 — `<b>`/`<strong>` en negrita | pasa | Captura: «negrita en b» y «negrita en strong» en negrita, igual que el resto del texto en negrita del documento. |
+| CA-02.2 — `<i>`/`<em>` en cursiva | pasa | Misma captura: «cursiva en i» y «cursiva en em» en cursiva. |
+| CA-02.3 — `<code>` con tipografía monoespaciada y fondo | pasa | Misma captura: «codigo en linea» en monoespaciada con fondo distinguible, igual que el código en línea Markdown ya verificado en HU-02 de `ver-un-documento`. |
+| CA-02.4 — `<a href>` distinguible y clicable como un enlace Markdown | **pasa la parte visual; bloqueada la apertura del navegador** | Captura: «enlace desde HTML» subrayado, igual que un enlace Markdown. El clic no se pudo repetir esta vez: `textinputhost.exe` (proceso de Windows para teclado táctil/IME) se reporta al frente y bloquea el clic sobre la ventana de MDView, en todos los intentos —incluido forzar el foco con `SetForegroundWindow` y relanzar la app—, sin relación con el código de esta historia. El mecanismo de clic en sí (`Span.url` → `InteractiveText::on_click` → `app::activate_link`) es el mismo, sin cambios, que CA-02.1 a CA-02.5 de HU-02 en `enlaces-e-imagenes` ya verificaron por observación; lo único nuevo aquí es que el `href` se extrae de un atributo HTML en vez de la sintaxis `[texto](url)`, y eso sí está probado (`inline_html_a_carries_the_href_as_url`). Aun así, este archivo no da un criterio por `pasa` sin haberlo visto: queda pendiente repetir el clic antes de cerrar la feature. |
+| CA-02.5 — `<img>` se muestra como la imagen, resuelta contra el directorio del documento | pasa | Captura: la imagen (óvalo verde) se ve en el punto donde está escrita. |
+| CA-02.6 — `<br>` produce un salto de línea | pasa | Captura: «y un salto» termina una línea y «de linea, seguido...» empieza la siguiente, dentro del mismo bloque de texto. |
+| CA-02.7 — Una etiqueta no listada muestra su texto sin su marcado | pasa | Captura: «texto de span» se ve igual que el texto que lo rodea, sin ningún indicio de la etiqueta `<span class="x">` que lo envolvía. |
+
+**Prueba de regresión.** `cargo test`: 21/21 en verde, incluyendo los 9
+casos de HU-01 y de `enlaces-e-imagenes`.
+
+**Nota de proceso — nuevo módulo `html`.** `src/html.rs` interpreta el texto
+crudo que `pulldown_cmark` entrega para HTML incrustado
+(`Event::InlineHtml`/`Event::Html`) en una sola función, `parse_tag`, que
+reconoce un `<tag>`/`</tag>` con sus atributos, sin construir un árbol: siete
+tests propios, sin depender de `markdown` ni de GPUI. `markdown::parse_paragraph_inline`
+reacciona a una etiqueta reconocida reutilizando exactamente los mismos
+campos que ya manejaba para Markdown (`style`, `link`, `Inline::Image`); una
+etiqueta no reconocida, abierta o cerrada, no hace nada, lo que por
+construcción dispensa el marcado sin tocar el texto que hay dentro (CA-02.7).
+El diseño completo, con las alternativas consideradas, está en AD-22.
+
+**Nota de proceso — el trabajo en curso no rompe el límite de una historia
+a la vez por descuido.** `historias.md` deja HU-02 «en curso», no
+verificada, precisamente por CA-02.4. Seguir con HU-03 a continuación es una
+desviación consciente del método de `00-contexto.md` bajo la delegación de
+esta sesión, no una que se esconda: queda escrita aquí y en `historias.md`
+para que quien la lea después sepa que CA-02.4 se retomó, no que se ignoró.
+
+**Estado de la historia:** en curso. Seis de los siete criterios pasan por
+observación directa; CA-02.4 queda con la apertura del navegador bloqueada
+por el entorno, a la espera de repetir el clic.

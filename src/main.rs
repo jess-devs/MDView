@@ -2,6 +2,7 @@
 
 mod app;
 mod document;
+mod html;
 mod markdown;
 mod render;
 

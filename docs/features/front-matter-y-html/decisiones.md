@@ -66,3 +66,79 @@ tabla.
 - `render::render_front_matter` reutiliza el estilo visual de
   `render_table` en vez de tener uno propio: el front matter es metadato,
   no algo que el lector edite, así que no necesita su propio aspecto.
+
+---
+
+## AD-22 — Intérprete de HTML incrustado: módulo `html` propio, una etiqueta por evento
+
+Fecha: 2026-09-18
+
+**Contexto.** RF-13.1 exige interpretar quince etiquetas de HTML fijas.
+`plan.md` ya investigó, antes de escribir código, que `pulldown_cmark`
+entrega el HTML incrustado como texto crudo sin tokenizar
+(`Event::InlineHtml`/`Event::Html`), así que hace falta un intérprete
+propio del subconjunto cerrado.
+
+**Alternativas consideradas.**
+
+- *Depender de `html5ever`/`markup5ever`,* ya presentes de forma transitiva
+  vía `gpui-component`. Rechazada: son un analizador y un árbol DOM de HTML
+  completo, con el algoritmo de construcción de árbol de la especificación
+  —manejo de HTML mal formado, reglas de reubicación de nodos, espacios de
+  nombres—, pensado para HTML de verdad en una página web. Interpretar
+  quince etiquetas fijas con ese motor sería resolver un problema mucho más
+  grande que el que RF-13.1 plantea, y añadirlo como dependencia directa
+  exigiría justificar esa complejidad sin necesitarla —el mismo criterio que
+  `01-alcance.md` ya aplicó para descartar «HTML completo con hojas de
+  estilo».
+- *Un tokenizador de una sola etiqueta por llamada, sin árbol.* Elegida.
+  `html::parse_tag(raw: &str) -> Option<Tag>` interpreta el texto de un
+  único evento (`<b>`, `</b>`, `<img src="..." alt="...">`) en nombre,
+  abre/cierra, autocierre y atributos. No construye ninguna estructura de
+  documento: cada `Event::InlineHtml`/`Event::Html` que `pulldown_cmark` ya
+  entrega por separado se interpreta por separado, en el mismo bucle que ya
+  recorre los demás eventos de `markdown::parse_paragraph_inline`. Encaja
+  con la forma en que la biblioteca entrega los datos en vez de pelearse con
+  ella construyendo un árbol que esta biblioteca no da y que este alcance no
+  pide.
+
+**Decisión.** Nuevo módulo `src/html.rs`, quinto módulo del proyecto —
+`03-arquitectura.md` pasa de cuatro a cinco—, con la misma regla que los
+demás: no conoce GPUI ni `gpui-component`. Vive aparte de `markdown` porque
+es una gramática distinta (etiquetas HTML, no bloques e inlines de
+CommonMark) que va a crecer en las tres historias siguientes (HU-03 a
+HU-05); meterlo dentro de `markdown.rs` lo habría dejado como un archivo de
+mil líneas mezclando dos analizadores. `markdown::apply_inline_html_tag`
+traduce el resultado de `html::parse_tag` a los mismos campos que ya usaba
+el analizador de Markdown (`style: &mut SpanStyle`, `link: &mut
+Option<String>`, `out: &mut Vec<Inline>`): una etiqueta reconocida cambia
+esos campos exactamente igual que su equivalente Markdown, así que
+`render` sigue sin saber que un fragmento vino de HTML.
+
+Una etiqueta que `html::parse_tag` no reconoce como bien formada —falta el
+`<` o el `>`, es un comentario, no tiene nombre— y una etiqueta reconocida
+pero fuera de las ocho que HU-02 interpreta (`b`, `strong`, `i`, `em`,
+`code`, `a`, `img`, `br`) reciben el mismo trato: `apply_inline_html_tag` no
+hace nada con ellas. El texto entre su apertura y su cierre llega de todos
+modos como eventos `Text` normales, ajenos a esta función, así que se sigue
+mostrando sin el marcado de la etiqueta — es la letra exacta de RF-13.1
+para las etiquetas no listadas, no un caso aparte que haya que programar.
+
+**Consecuencias.**
+
+- Etiquetas cruzadas de forma inválida —`<b><i>x</b></i>`— no se detectan
+  ni se corrigen: cada atributo de estilo es un booleano independiente
+  (`style.bold`, `style.italic`, `style.code`) que la etiqueta de cierre
+  correspondiente apaga, sin pila de etiquetas abiertas. Es el mismo modelo
+  que ya usaban `Emphasis`/`Strong` de Markdown antes de esta historia; un
+  navegador real corrige este caso reubicando nodos, cosa que este alcance
+  no necesita porque ningún documento de prueba lo pide.
+- `<img>` dentro del flujo de un párrafo usa los atributos `src`/`alt`
+  directamente — no acumula texto entre apertura y cierre como hace la
+  imagen Markdown, porque `<img>` no tiene contenido, es una etiqueta sin
+  cierre semántico. Un `<img>` solo en su propia línea, rodeado de líneas en
+  blanco, no llega por este camino: CommonMark lo reconoce como un bloque
+  HTML de tipo 7, no como HTML en línea dentro de un párrafo. Ese caso es
+  del intérprete de bloques que construyen HU-03 a HU-05, no de este.
+
+Estado: activa

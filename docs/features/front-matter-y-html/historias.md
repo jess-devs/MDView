@@ -76,7 +76,11 @@ párrafo que mezcla las ocho etiquetas con texto Markdown normal alrededor.
    `<span>`— no muestra su marcado, pero sí el texto que contiene, y el resto
    del párrafo se sigue mostrando.
 
-**Estado.** pendiente
+**Estado.** en curso. Seis de los siete criterios pasan por observación
+completa; CA-02.4 pasa en su parte visual (el enlace se ve distinguible) y
+queda bloqueado en la apertura del navegador por un obstáculo del entorno de
+esta sesión (`textinputhost.exe` impide el clic), no por el código — ver
+`docs/04-calidad.md`. Se retoma antes de cerrar la feature.
 
 ---
 

@@ -282,6 +282,7 @@ fn parse_paragraph_inline(events: &mut Events, base_dir: Option<&Path>) -> Vec<I
             Some(Start(Tag::Strikethrough)) | Some(End(TagEnd::Strikethrough)) => {}
             Some(Start(Tag::Link { .. })) | Some(End(TagEnd::Link)) => {}
             Some(Start(Tag::Image { .. })) | Some(End(TagEnd::Image)) => {}
+            Some(InlineHtml(_)) => {}
             _ => break,
         }
 
@@ -313,11 +314,42 @@ fn parse_paragraph_inline(events: &mut Events, base_dir: Option<&Path>) -> Vec<I
                 let (dest, alt) = image.take().expect("End(Image) without a matching Start(Image)");
                 out.push(Inline::Image(ImageRef { resolved: resolve_image(base_dir, &dest), alt }));
             }
+            InlineHtml(raw) => apply_inline_html_tag(&raw, base_dir, &mut style, &mut link, &mut out),
             _ => unreachable!(),
         }
     }
 
     out
+}
+
+/// Reacts to one embedded HTML tag inside a paragraph's inline flow
+/// (RF-13.1). Only `b`/`strong`, `i`/`em`, `code`, `a`, `img` and `br` are
+/// recognized here — the ones with a place in `Inline`/`Span` already, per
+/// AD-22; anything else, open or close, is silently ignored, which is
+/// exactly what shows its text without its markup: the text between an
+/// unrecognized tag's open and close arrives as ordinary `Text` events this
+/// function never sees, untouched by whatever the tag was.
+fn apply_inline_html_tag(
+    raw: &str,
+    base_dir: Option<&Path>,
+    style: &mut SpanStyle,
+    link: &mut Option<String>,
+    out: &mut Vec<Inline>,
+) {
+    let Some(tag) = crate::html::parse_tag(raw) else { return };
+    match tag.name.as_str() {
+        "b" | "strong" => style.bold = !tag.closing,
+        "i" | "em" => style.italic = !tag.closing,
+        "code" => style.code = !tag.closing,
+        "a" => *link = if tag.closing { None } else { tag.attr("href").map(str::to_string) },
+        "br" => out.push(Inline::Span(Span { text: "\n".to_string(), style: style.clone(), url: link.clone() })),
+        "img" if !tag.closing => {
+            let alt = tag.attr("alt").unwrap_or("").to_string();
+            let src = tag.attr("src").unwrap_or("");
+            out.push(Inline::Image(ImageRef { resolved: resolve_image(base_dir, src), alt }));
+        }
+        _ => {}
+    }
 }
 
 /// The same inline grammar as `parse_paragraph_inline`, flattened to plain
@@ -588,5 +620,85 @@ mod tests {
             })
             .collect();
         assert_eq!(image_in(paragraphs[0]).resolved, None);
+    }
+
+    fn first_paragraph(blocks: &[Block]) -> &Vec<Inline> {
+        blocks
+            .iter()
+            .find_map(|b| match b {
+                Block::Paragraph(inlines) => Some(inlines),
+                _ => None,
+            })
+            .expect("falta el parrafo")
+    }
+
+    fn spans_in(inlines: &[Inline]) -> Vec<&Span> {
+        inlines
+            .iter()
+            .filter_map(|inline| match inline {
+                Inline::Span(span) => Some(span),
+                Inline::Image(_) => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn inline_html_b_and_strong_apply_bold() {
+        let blocks = parse("<b>uno</b> y <strong>dos</strong>\n", None);
+        let spans = spans_in(first_paragraph(&blocks));
+        let bold: Vec<&str> = spans.iter().filter(|s| s.style.bold).map(|s| s.text.as_str()).collect();
+        assert_eq!(bold, vec!["uno", "dos"]);
+    }
+
+    #[test]
+    fn inline_html_i_and_em_apply_italic() {
+        let blocks = parse("<i>uno</i> y <em>dos</em>\n", None);
+        let spans = spans_in(first_paragraph(&blocks));
+        let italic: Vec<&str> = spans.iter().filter(|s| s.style.italic).map(|s| s.text.as_str()).collect();
+        assert_eq!(italic, vec!["uno", "dos"]);
+    }
+
+    #[test]
+    fn inline_html_code_applies_code_style() {
+        let blocks = parse("texto <code>codigo</code> mas texto\n", None);
+        let spans = spans_in(first_paragraph(&blocks));
+        let code = spans.iter().find(|s| s.text == "codigo").expect("falta el span de codigo");
+        assert!(code.style.code);
+    }
+
+    #[test]
+    fn inline_html_a_carries_the_href_as_url() {
+        let blocks = parse(r#"<a href="https://x.dev">enlace</a>"#, None);
+        let spans = spans_in(first_paragraph(&blocks));
+        let link = spans.iter().find(|s| s.text == "enlace").expect("falta el span del enlace");
+        assert_eq!(link.url.as_deref(), Some("https://x.dev"));
+    }
+
+    #[test]
+    fn inline_html_img_becomes_a_real_image_with_alt_and_resolved_path() {
+        // Mixed into running text, not alone on its own line: a lone `<img>`
+        // surrounded by blank lines is a block-level HTML block under
+        // CommonMark's own rules (type 7), not inline HTML — that shape is
+        // HU-03's territory, not this one.
+        let base_dir = Path::new("/docs/proyecto");
+        let blocks = parse(r#"foto: <img src="img/foto.png" alt="una foto"> fin"#, Some(base_dir));
+        let image = image_in(first_paragraph(&blocks));
+        assert_eq!(image.alt, "una foto");
+        assert_eq!(image.resolved.as_deref(), Some(Path::new("/docs/proyecto/img/foto.png")));
+    }
+
+    #[test]
+    fn inline_html_br_becomes_a_line_break() {
+        let blocks = parse("antes<br>despues\n", None);
+        let spans = spans_in(first_paragraph(&blocks));
+        assert!(spans.iter().any(|s| s.text == "\n"), "el <br> debe producir un salto de linea");
+    }
+
+    #[test]
+    fn an_unlisted_tag_shows_its_text_but_not_its_markup() {
+        let blocks = parse("uno <span class=\"x\">dos</span> tres\n", None);
+        let spans = spans_in(first_paragraph(&blocks));
+        let text: String = spans.iter().map(|s| s.text.as_str()).collect();
+        assert_eq!(text, "uno dos tres");
     }
 }
