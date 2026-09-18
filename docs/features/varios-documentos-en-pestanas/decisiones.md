@@ -64,3 +64,50 @@ cambiar de pestaña (`on_click`) y cerrarla son HU-02 y HU-03.
   amplió el mecanismo de aviso para ese caso.
 
 Estado: activa
+
+---
+
+## AD-26 — Un clic muta `AppState`: `Entity<DocumentView>::update`, no una función libre
+
+Fecha: 2026-09-18
+
+**Contexto.** Hasta ahora, lo único que un clic sobre texto interactivo
+hacía era leer datos (`app::activate_link(url)`, una función libre sin
+acceso a `AppState`: le basta con lanzar el navegador). CA-02.1 exige que
+pulsar una pestaña **cambie** `AppState.active_tab` y provoque un nuevo
+fotograma — la primera vez que un clic necesita mutar estado, no solo
+reaccionar a él.
+
+**Investigación, antes de escribir código.** `DocumentView` implementa
+`Render` sobre `&mut self`, con `cx: &mut Context<Self>` — es decir, ya es
+un `Entity<DocumentView>` por dentro; lo que falta es una forma de alcanzar
+ese entity desde dentro de un cierre de clic que se ejecuta más tarde, no
+durante `render()`. `Context<T>::entity(&self) -> Entity<T>` (en
+`gpui` 0.2.2, `app/context.rs`) da exactamente eso, y `Entity<T>::update(&self,
+cx: &mut C, f: impl FnOnce(&mut T, &mut Context<T>))` (`entity_map.rs`) es
+el mecanismo estándar de GPUI para mutar un entity desde fuera de su propio
+`render()`.
+
+**Decisión.** `DocumentView::render` captura `cx.entity()` una vez, al
+principio, y lo pasa a `render_tab_bar`, que lo mueve dentro del cierre de
+`TabBar::on_click`. Al pulsar una pestaña, el cierre llama a
+`view.update(cx, |view, cx| { view.state.active_tab = ix; cx.notify(); })`:
+cambia el campo y pide explícitamente un nuevo fotograma con `cx.notify()`
+—sin esa llamada, GPUI no sabe que el estado cambió y no vuelve a
+dibujar—. Es el mismo patrón que usará HU-04 para que un enlace a otro
+`.md` añada o active una pestaña, así que se registra aquí, la primera vez
+que aparece, no se repite la investigación en esa historia.
+
+**Consecuencias.**
+
+- `render_tab_bar` ya no es una función que solo lee: recibe
+  `Entity<DocumentView>` por valor (se clona barato, es un handle) y lo
+  mueve dentro de un cierre `'static` — la razón por la que no basta con
+  `&App`, que no puede sobrevivir más allá de la llamada a `render()`.
+- El cierre comprueba `ix < view.state.tabs.len()` antes de asignar: si la
+  lista de pestañas cambiara entre que se pintó la barra y que el clic
+  llegó (por ejemplo, si HU-03 permitiera cerrar una pestaña por otra vía
+  mientras el clic está en vuelo), un índice fuera de rango no entra en
+  pánico, simplemente no hace nada.
+
+Estado: activa

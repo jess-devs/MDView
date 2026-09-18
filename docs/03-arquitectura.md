@@ -86,3 +86,4 @@ que le faltan entradas es peor que no tener índice.
 | AD-23 | Bloques de HTML: tokenizar la cadena entera, y `Block::Centered` sin equivalente Markdown | `features/front-matter-y-html/decisiones.md` | activa |
 | AD-24 | `details`/`summary`: siempre visible, sin plegado interactivo | `features/front-matter-y-html/decisiones.md` | activa |
 | AD-25 | `AppState` con una lista de pestañas; identidad por ruta canonicalizada; `Tab`/`TabBar` de `gpui-component` | `features/varios-documentos-en-pestanas/decisiones.md` | activa |
+| AD-26 | Un clic muta `AppState`: `Entity<DocumentView>::update`, no una función libre | `features/varios-documentos-en-pestanas/decisiones.md` | activa |

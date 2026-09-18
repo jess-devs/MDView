@@ -56,7 +56,8 @@ ya abiertos.
 3. CA-02.3 — Volver a una pestaña ya visitada muestra su documento completo,
    sin diferencias respecto a la primera vez que se vio.
 
-**Estado.** pendiente
+**Estado.** verificada. Los tres criterios pasan por observación; el
+detalle está en `docs/04-calidad.md`.
 
 ---
 

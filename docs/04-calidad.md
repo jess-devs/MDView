@@ -922,3 +922,31 @@ clase de código por observación.
 
 **Estado de la historia:** verificada. Los cinco criterios pasan por
 observación directa.
+
+---
+
+## HU-02 (varios-documentos-en-pestanas) — Cambiar de pestaña
+
+Verificado el 2026-09-18, en la misma máquina de desarrollo. `cargo test`:
+31/31 en verde, sin casos nuevos. Compilado `target\debug\mdview.exe`.
+
+Documentos de prueba: los mismos tres de HU-01.
+
+| Criterio | Resultado | Evidencia |
+| --- | --- | --- |
+| CA-02.1 — Pulsar una pestaña no activa la activa | pasa | Captura: con «pestanas-doc-a.md» activa, clic en «pestanas-doc-c.md» y aparece «Documento C». |
+| CA-02.2 — La pestaña activa se distingue visualmente | pasa | Misma captura: fondo blanco en la pestaña activa, gris en las demás — visible en ambas capturas de esta historia, con «-a» y con «-c» activas. |
+| CA-02.3 — Volver a una pestaña ya visitada la muestra completa | pasa | Captura: clic de vuelta en «pestanas-doc-a.md» tras haber estado en «-c»; «Documento A» se ve igual que la primera vez. |
+
+**Prueba de regresión.** `cargo test`: 31/31 en verde.
+
+**Nota de proceso.** Primer clic de este proyecto que muta `AppState` en
+vez de solo leerlo: `render_tab_bar` captura `cx.entity()` y lo mueve
+dentro de `TabBar::on_click`, que llama a
+`Entity<DocumentView>::update(cx, |view, cx| { view.state.active_tab = ix;
+cx.notify(); })`. Decisión completa, investigada contra el código fuente de
+`gpui` antes de escribir nada, en AD-26 — HU-04 reutilizará el mismo
+patrón para que un enlace a otro `.md` añada o active una pestaña.
+
+**Estado de la historia:** verificada. Los tres criterios pasan por
+observación directa.

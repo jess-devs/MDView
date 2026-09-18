@@ -72,7 +72,7 @@ impl Render for DocumentView {
 
         let mut root = div().relative().size_full().v_flex();
         if !self.state.tabs.is_empty() {
-            root = root.child(render_tab_bar(&self.state.tabs, self.state.active_tab));
+            root = root.child(render_tab_bar(&self.state.tabs, self.state.active_tab, cx.entity()));
         }
         // `Root` does not render notifications/dialogs/sheets on its own;
         // the top-level view is expected to composite them in. Without this,
@@ -94,13 +94,26 @@ impl Render for DocumentView {
 
 /// Renders the tab bar (RF-05.1, RF-06.1): one `Tab` per open document,
 /// labeled with its file name — never a full path or the document's first
-/// heading (RF-06.1, `01-alcance.md` supuesto 5). Switching tabs is HU-02's
-/// job; this only shows which one is active.
-fn render_tab_bar(tabs: &[crate::app::DocumentTab], active_tab: usize) -> impl IntoElement {
-    TabBar::new("document-tabs").selected_index(active_tab).children(tabs.iter().map(|tab| {
-        let label = tab.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-        Tab::new().label(label)
-    }))
+/// heading (RF-06.1, `01-alcance.md` supuesto 5). Clicking one activates it
+/// (CA-02.1): `TabBar::on_click` needs to mutate `AppState`, which a `render`
+/// function only reaches through the view's own `Entity` (AD-26) — a plain
+/// `&App` in scope here isn't enough, the way it was for `app::activate_link`.
+fn render_tab_bar(tabs: &[crate::app::DocumentTab], active_tab: usize, view: Entity<DocumentView>) -> impl IntoElement {
+    TabBar::new("document-tabs")
+        .selected_index(active_tab)
+        .children(tabs.iter().map(|tab| {
+            let label = tab.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+            Tab::new().label(label)
+        }))
+        .on_click(move |ix, _window, cx| {
+            let ix = *ix;
+            view.update(cx, |view, cx| {
+                if ix < view.state.tabs.len() && ix != view.state.active_tab {
+                    view.state.active_tab = ix;
+                    cx.notify();
+                }
+            });
+        })
 }
 
 /// The window shown when MDView is launched without a file (RF-19).
