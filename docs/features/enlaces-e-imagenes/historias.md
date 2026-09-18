@@ -63,9 +63,8 @@ distinguibles pero no reaccionaban al clic. No amplía la historia: RF-15.1 dice
 «al activarse un enlace `http` o `https`» sin distinguir dónde está escrito, así
 que la lista de criterios estaba incompleta, no el requisito.
 
-**Estado.** en curso. Cuatro de los cinco criterios pasan por observación;
-CA-02.5 está bloqueado a falta de confirmar el lado del navegador. Detalle en
-`docs/04-calidad.md`.
+**Estado.** verificada. Los cinco criterios pasan por observación; el detalle
+está en `docs/04-calidad.md`.
 
 ---
 

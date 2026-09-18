@@ -491,7 +491,7 @@ final).
 | CA-02.2 — Un enlace `http` se comporta igual | pasa | Mismo mecanismo que CA-02.1 (`app::activate_link` no distingue el esquema); la captura de 2026-08-24 incluye ambos enlaces en el mismo documento. |
 | CA-02.3 — La dirección no se abre dentro de la ventana de MDView | pasa | `pruebas/ca-02-tras-click.png`: MDView sigue mostrando el mismo documento en la misma posición; el navegador aparece como ventana aparte. Reconfirmado esta sesión: tras el clic, captura de pantalla de MDView sin cambios de contenido ni de scroll. |
 | CA-02.4 — MDView sigue respondiendo tras abrir el enlace | pasa | Esta sesión: `Get-Process mdview` devuelve `Responding: True` inmediatamente después del clic, y el documento admite scroll con normalidad a continuación. |
-| CA-02.5 — Un enlace `https` en celda de tabla se abre igual que uno en párrafo | **bloqueado** | Esta sesión: se lanzó `pruebas/hu-02-tabla.md`; por captura se confirmó que el enlace de la celda se ve distinguible (subrayado, sin URL en el cuerpo) y se hizo clic exactamente sobre su rango de texto. MDView no se cerró ni dejó de responder tras el clic (`Get-Process mdview` → `Responding: True`). Pero no se pudo observar la parte que el criterio exige — que el navegador muestre esa dirección —: el acceso de solo lectura a la ventana del navegador (Microsoft Edge, y luego Dia, el predeterminado real de esta máquina) fue denegado dos veces al pedirlo. Que `render_table_row` invoque ahora el mismo camino que ya se verificó por observación en CA-02.1 (`render_text` → `InteractiveText::on_click` → `app::activate_link`) es una garantía de diseño, no una observación, y `AGENTS.md` es explícito en que eso no cuenta como evidencia. |
+| CA-02.5 — Un enlace `https` en celda de tabla se abre igual que uno en párrafo | pasa | Esta sesión, en dos tiempos. Primero sin acceso al navegador: se lanzó `pruebas/hu-02-tabla.md`, el enlace de la celda se veía distinguible (subrayado, sin URL en el cuerpo) y el clic sobre su rango de texto no cerró ni colgó MDView (`Get-Process mdview` → `Responding: True`), pero el resultado del clic —si abría algo— quedó sin observar. El usuario concedió después acceso de solo lectura a Dia (su navegador predeterminado real) y se repitió la prueba: al pulsar «ejemplo en tabla», Dia abrió una pestaña nueva («Example Domain») cuya barra de direcciones, ampliada, muestra `https://example.com/tabla` — exactamente la URL de la celda. Vuelta a MDView: mismo documento, misma posición, sin cambios. |
 
 **Prueba de regresión.** `cargo test` sigue en verde (2/2), sin cambios
 respecto a HU-01: esta historia no tocó `markdown.rs`.
@@ -500,17 +500,18 @@ respecto a HU-01: esta historia no tocó `markdown.rs`.
 comprometer.** El código de `src/render.rs` y la decisión en
 `decisiones.md` que cierran CA-02.5 ya estaban escritos en el árbol de
 trabajo al empezar esta sesión, sin commit. Esta sesión los revisó línea por
-línea, corrió `cargo test`, compiló, y confirmó por observación cuatro de
-los cinco criterios — no escribió el fix.
+línea, corrió `cargo test`, compiló y verificó los cinco criterios por
+observación — no escribió el fix.
 
-**Lo que haría falta para cerrar CA-02.5.** Repetir el clic sobre
-`pruebas/hu-02-tabla.md` con permiso de captura de pantalla concedido sobre
-el navegador predeterminado (Dia), y comprobar que la pestaña muestra
-`https://example.com/tabla`. Es una comprobación de minutos, no de diseño
-nuevo: el código ya está escrito y compilado.
+**Nota de proceso — el primer intento de observar CA-02.5 se bloqueó, y eso
+fue correcto, no un fallo.** El acceso de pantalla al navegador se denegó
+dos veces antes de que el usuario, presente en la conversación, lo concediera
+explícitamente a la tercera. Entre medias este archivo registró el criterio
+como `bloqueado`, no como `pasa` apoyado en que el código reutiliza el mismo
+camino que CA-02.1 — que es una garantía de diseño, no una observación. La
+comprobación real, una vez concedido el acceso, tardó menos de un minuto y
+confirmó exactamente lo que el diseño prometía; pero el orden importa: la
+confirmación vino de mirar la pantalla, no de leer el código.
 
-**Estado de la historia:** en curso. Cuatro de los cinco criterios pasan por
-observación; CA-02.5 queda bloqueado a falta de esa última comprobación, no
-porque se sospeche que falle — el código toma el mismo camino que ya
-funciona para párrafos —, sino porque este archivo no da un criterio por
-`pasa` sin haberlo visto.
+**Estado de la historia:** verificada. Los cinco criterios pasan por
+observación directa.
