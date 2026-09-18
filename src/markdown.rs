@@ -410,6 +410,11 @@ fn parse_html_block_tokens(tokens: &[crate::html::Token], base_dir: Option<&Path
                         let inlines = collect_html_inline(&mut iter, base_dir, "div");
                         blocks.push(Block::Centered(inlines));
                     }
+                    "table" => {
+                        let (header, rows) = parse_html_table(&mut iter, base_dir);
+                        consume_html_close(&mut iter, "table");
+                        blocks.push(Block::Table { header, rows });
+                    }
                     // Any other tag — including a `div` without centering,
                     // which RF-13.1 doesn't ask for — shows no markup of its
                     // own. Its content still surfaces: the loop keeps
@@ -484,13 +489,79 @@ fn collect_html_inline(iter: &mut HtmlTokens, base_dir: Option<&Path>, stop_name
     out
 }
 
+/// Parses a `<table>`'s rows (RF-13.1, HU-04): a row whose cells are all
+/// `<th>` becomes the header (only the first one found — a second `<th>`
+/// row, which no test document has, would land in `rows` like any other),
+/// everything else becomes a body row. Cells are text-only, like a Markdown
+/// table's (AD-20): `<td>`/`<th>` reuse `collect_html_inline` and flatten
+/// any image to its alt text, the same as `parse_inline_spans` does.
+fn parse_html_table(iter: &mut HtmlTokens, base_dir: Option<&Path>) -> (Vec<Vec<Span>>, Vec<Vec<Vec<Span>>>) {
+    let mut header = Vec::new();
+    let mut rows = Vec::new();
+
+    loop {
+        match iter.peek() {
+            Some(crate::html::Token::Tag(tag)) if !tag.closing && tag.name == "tr" => {
+                iter.next();
+                let (cells, all_th) = parse_html_table_row(iter, base_dir);
+                consume_html_close(iter, "tr");
+                if all_th && header.is_empty() && rows.is_empty() {
+                    header = cells;
+                } else {
+                    rows.push(cells);
+                }
+            }
+            Some(crate::html::Token::Text(t)) if t.trim().is_empty() => {
+                iter.next(); // whitespace between rows
+            }
+            _ => break,
+        }
+    }
+
+    (header, rows)
+}
+
+/// Reads one `<tr>`'s cells, and whether every one of them was a `<th>`
+/// (the header-detection signal `parse_html_table` uses).
+fn parse_html_table_row(iter: &mut HtmlTokens, base_dir: Option<&Path>) -> (Vec<Vec<Span>>, bool) {
+    let mut cells = Vec::new();
+    let mut all_th = true;
+    let mut saw_any = false;
+
+    loop {
+        match iter.peek() {
+            Some(crate::html::Token::Tag(tag)) if !tag.closing && (tag.name == "td" || tag.name == "th") => {
+                let name = tag.name.clone();
+                saw_any = true;
+                all_th &= name == "th";
+                iter.next();
+                cells.push(flatten_inlines_to_spans(collect_html_inline(iter, base_dir, &name)));
+            }
+            Some(crate::html::Token::Text(t)) if t.trim().is_empty() => {
+                iter.next(); // whitespace between cells
+            }
+            _ => break,
+        }
+    }
+
+    (cells, all_th && saw_any)
+}
+
 /// The same inline grammar as `parse_paragraph_inline`, flattened to plain
 /// `Span`s: an image's alt text stands in for it, exactly as it did before
 /// this module could show an image at all. Used for headings and table
 /// cells, which stay text-only (AD-20) — RF-11.1's criteria only ever put an
 /// image in its own paragraph.
 fn parse_inline_spans(events: &mut Events) -> Vec<Span> {
-    parse_paragraph_inline(events, None)
+    flatten_inlines_to_spans(parse_paragraph_inline(events, None))
+}
+
+/// An image's alt text stands in for it, exactly as it did before this
+/// module could show an image at all — for contexts that stay text-only
+/// (AD-20): headings, and table cells, Markdown or HTML alike (RF-11.1's
+/// criteria only ever put an image in its own paragraph).
+fn flatten_inlines_to_spans(inlines: Vec<Inline>) -> Vec<Span> {
+    inlines
         .into_iter()
         .map(|inline| match inline {
             Inline::Span(span) => span,
@@ -883,6 +954,24 @@ mod tests {
             })
             .expect("falta el bloque centrado");
         assert_eq!(spans_in(inlines)[0].text, "centrado");
+    }
+
+    #[test]
+    fn html_block_table_becomes_a_table_with_header_and_rows() {
+        let source = "<table>\n<tr><th>Nombre</th><th>Valor</th></tr>\n<tr><td>uno</td><td>1</td></tr>\n<tr><td>dos</td><td>2</td></tr>\n</table>\n";
+        let blocks = parse(source, None);
+        let (header, rows) = blocks
+            .iter()
+            .find_map(|b| match b {
+                Block::Table { header, rows } => Some((header, rows)),
+                _ => None,
+            })
+            .expect("falta la tabla");
+
+        assert_eq!(header.iter().map(|c| c[0].text.as_str()).collect::<Vec<_>>(), vec!["Nombre", "Valor"]);
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0][0][0].text, "uno");
+        assert_eq!(rows[1][1][0].text, "2");
     }
 
     #[test]

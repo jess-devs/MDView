@@ -129,7 +129,8 @@ una tabla HTML de cabecera y dos filas, con `<th>`/`<td>`.
 2. CA-04.2 — Cada celda (`<td>`) aparece en su columna y fila correctas.
 3. CA-04.3 — El contenido antes y después de la tabla se sigue mostrando.
 
-**Estado.** pendiente
+**Estado.** verificada. Los tres criterios pasan por observación; el
+detalle está en `docs/04-calidad.md`.
 
 ---
 

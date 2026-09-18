@@ -808,3 +808,35 @@ ocupa toda la columna igual—.
 
 **Estado de la historia:** verificada. Los cinco criterios pasan por
 observación directa.
+
+---
+
+## HU-04 (front-matter-y-html) — Ver una tabla de HTML incrustada con el formato equivalente
+
+Verificado el 2026-09-18, en la misma máquina de desarrollo. `cargo test`
+(28 casos: los 27 anteriores más 1 propio de esta historia) en verde.
+Compilado `target\debug\mdview.exe`.
+
+Documento de prueba: `pruebas/hu-04-tabla-html/documento.md`, una tabla
+HTML de cabecera (`<th>`) y dos filas (`<td>`), entre dos encabezados.
+
+| Criterio | Resultado | Evidencia |
+| --- | --- | --- |
+| CA-04.1 — La tabla se muestra como rejilla, cabecera distinguible | pasa | Captura: fila «Nombre»/«Valor» con fondo gris y negrita, igual que la cabecera de una tabla Markdown. |
+| CA-04.2 — Cada celda en su fila y columna correctas | pasa | Misma captura: «uno»/«1» y «dos»/«2», cada valor bajo su columna. |
+| CA-04.3 — El contenido antes y después se sigue mostrando | pasa | Misma captura: «Antes» y «Despues» visibles. |
+
+**Prueba de regresión.** `cargo test`: 28/28 en verde.
+
+**Nota de proceso.** `parse_html_table` reutiliza `collect_html_inline` de
+HU-02/HU-03 para el contenido de cada celda, aplanado a `Span` con la misma
+función que ya usaban las celdas de tabla Markdown
+(`flatten_inlines_to_spans`, factorizada de `parse_inline_spans` en este
+mismo cambio): una tabla HTML y una tabla Markdown terminan en el mismo
+`Block::Table`, sin código nuevo en `render`. La cabecera se detecta por
+que todas las celdas de la primera fila sean `<th>`; una tabla con más de
+una fila de cabecera —ningún documento de prueba la tiene— trataría la
+segunda como fila de cuerpo.
+
+**Estado de la historia:** verificada. Los tres criterios pasan por
+observación directa.
