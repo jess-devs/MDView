@@ -54,6 +54,9 @@ pub struct ListItem {
 }
 
 pub enum Block {
+    /// The document's front matter (RF-12.1), as ordered (name, value) pairs.
+    /// Only ever the first block, if present at all: see `extract_front_matter`.
+    FrontMatter(Vec<(String, String)>),
     Heading(u8, Vec<Span>),
     Paragraph(Vec<Inline>),
     List { ordered: bool, start: u64, items: Vec<ListItem> },
@@ -68,9 +71,60 @@ pub enum Block {
 /// paths (RF-11.1); pass `None` when there is no file on disk to resolve
 /// against (e.g. in isolation, as the tests below do).
 pub fn parse(source: &str, base_dir: Option<&Path>) -> Vec<Block> {
+    let (front_matter, rest) = extract_front_matter(source);
+
     let options = Options::ENABLE_TABLES | Options::ENABLE_STRIKETHROUGH | Options::ENABLE_TASKLISTS;
-    let mut events = Parser::new_ext(source, options).peekable();
-    parse_blocks(&mut events, base_dir)
+    let mut events = Parser::new_ext(rest, options).peekable();
+
+    let mut blocks = Vec::new();
+    if let Some(properties) = front_matter {
+        blocks.push(Block::FrontMatter(properties));
+    }
+    blocks.extend(parse_blocks(&mut events, base_dir));
+    blocks
+}
+
+/// Pulls a leading front matter block off `source` (RF-12.1), by hand rather
+/// than with `pulldown_cmark`'s own `ENABLE_YAML_STYLE_METADATA_BLOCKS`: that
+/// option recognizes a `---`-delimited block at *any* block boundary in the
+/// document, not only the first — reading `pulldown-cmark`'s `firstpass.rs`
+/// confirms `scan_metadata_block` carries no such restriction. RF-12.1 only
+/// ever means the document's very first line, so this checks that directly on
+/// the raw text instead of trusting the library's broader definition.
+///
+/// Returns the parsed properties (`None` if there is no front matter) and the
+/// remaining source with the front matter block —delimiters included— cut
+/// off the front, ready for `pulldown_cmark` to parse as before.
+fn extract_front_matter(source: &str) -> (Option<Vec<(String, String)>>, &str) {
+    let Some(after_open) = source.strip_prefix("---") else {
+        return (None, source);
+    };
+    // The opening `---` must be alone on its line: only a newline (or EOF)
+    // may follow it, not e.g. `----` or `--- title`.
+    let after_open = match after_open.strip_prefix("\r\n").or_else(|| after_open.strip_prefix('\n')) {
+        Some(rest) => rest,
+        None => return (None, source),
+    };
+
+    let mut properties = Vec::new();
+    let mut cursor = after_open;
+    loop {
+        let line_end = cursor.find('\n').map(|i| i + 1).unwrap_or(cursor.len());
+        let (line, remainder) = cursor.split_at(line_end);
+        let trimmed = line.trim_end_matches(['\n', '\r']);
+
+        if trimmed == "---" {
+            return (Some(properties), remainder);
+        }
+        if remainder.is_empty() && trimmed != "---" {
+            // Reached EOF without a closing delimiter: not front matter.
+            return (None, source);
+        }
+        if let Some((key, value)) = trimmed.split_once(':') {
+            properties.push((key.trim().to_string(), value.trim().to_string()));
+        }
+        cursor = remainder;
+    }
 }
 
 type Events<'a> = Peekable<Parser<'a>>;
@@ -370,6 +424,66 @@ mod tests {
     fn html_block_does_not_truncate_the_document() {
         let source = "# uno\n\n<div align=\"center\">hola</div>\n\n# dos\n";
         assert_eq!(heading_texts(&parse(source, None)), vec!["uno".to_string(), "dos".to_string()]);
+    }
+
+    fn front_matter_of(blocks: &[Block]) -> Option<&Vec<(String, String)>> {
+        blocks.iter().find_map(|b| match b {
+            Block::FrontMatter(properties) => Some(properties),
+            _ => None,
+        })
+    }
+
+    #[test]
+    fn front_matter_becomes_ordered_properties_and_is_the_first_block() {
+        let source = "---\ntitulo: Ejemplo\nautor: Jesus\nfecha: 2026-09-18\n---\n# Encabezado\n";
+        let blocks = parse(source, None);
+
+        assert!(matches!(blocks[0], Block::FrontMatter(_)), "el front matter debe ser el primer bloque");
+        let properties = front_matter_of(&blocks).unwrap();
+        assert_eq!(
+            properties,
+            &vec![
+                ("titulo".to_string(), "Ejemplo".to_string()),
+                ("autor".to_string(), "Jesus".to_string()),
+                ("fecha".to_string(), "2026-09-18".to_string()),
+            ]
+        );
+
+        assert_eq!(heading_texts(&blocks), vec!["Encabezado".to_string()]);
+    }
+
+    #[test]
+    fn a_value_with_a_colon_is_not_truncated_at_the_first_one() {
+        let source = "---\nhora: 10:30:00\n---\ntexto\n";
+        let blocks = parse(source, None);
+        let properties = front_matter_of(&blocks).unwrap();
+        assert_eq!(properties, &vec![("hora".to_string(), "10:30:00".to_string())]);
+    }
+
+    #[test]
+    fn a_thematic_break_that_is_not_the_first_line_is_not_front_matter() {
+        // The same shape as front matter -- `---`, some lines, `---` -- but
+        // starting after a paragraph. RF-12.1 is explicit that this doesn't
+        // count: only the document's very first line does.
+        let source = "un parrafo\n\n---\nclave: valor\n---\n";
+        let blocks = parse(source, None);
+        assert!(front_matter_of(&blocks).is_none());
+    }
+
+    #[test]
+    fn an_unclosed_leading_dashes_block_is_not_front_matter() {
+        let source = "---\nclave: valor\nsin cerrar\n";
+        let blocks = parse(source, None);
+        assert!(front_matter_of(&blocks).is_none());
+        // Falls through to ordinary parsing instead of vanishing.
+        let paragraphs: Vec<&Vec<Inline>> = blocks
+            .iter()
+            .filter_map(|b| match b {
+                Block::Paragraph(inlines) => Some(inlines),
+                _ => None,
+            })
+            .collect();
+        assert!(!paragraphs.is_empty(), "el contenido no reconocido como front matter debe seguir mostrandose");
     }
 
     fn image_in(inlines: &[Inline]) -> &ImageRef {

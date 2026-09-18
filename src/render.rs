@@ -139,6 +139,7 @@ fn render_block(
     cx: &mut App,
 ) -> AnyElement {
     match block {
+        Block::FrontMatter(properties) => render_front_matter(properties, text_index, cx).into_any_element(),
         Block::Heading(level, spans) => {
             let id = *text_index;
             *text_index += 1;
@@ -252,6 +253,29 @@ fn render_list(
     }
 
     list
+}
+
+/// Renders the document's front matter as a two-column properties table
+/// (RF-12.1), reusing the same row styling as a Markdown table: front matter
+/// is metadata, not something a reader edits, so it doesn't need its own look.
+fn render_front_matter(properties: &[(String, String)], text_index: &mut usize, cx: &App) -> AnyElement {
+    if properties.is_empty() {
+        // A `---`/`---` block with nothing recognizable as `key: value` in
+        // between: nothing to show, and nothing worth an empty table for.
+        return div().into_any_element();
+    }
+
+    let rows: Vec<Vec<Vec<Span>>> = properties
+        .iter()
+        .map(|(name, value)| {
+            vec![
+                vec![Span { text: name.clone(), style: SpanStyle { bold: true, ..Default::default() }, url: None }],
+                vec![Span { text: value.clone(), style: SpanStyle::default(), url: None }],
+            ]
+        })
+        .collect();
+
+    render_table(&[], &rows, text_index, cx).into_any_element()
 }
 
 fn render_table(header: &[Vec<Span>], rows: &[Vec<Vec<Span>>], text_index: &mut usize, cx: &App) -> impl IntoElement {

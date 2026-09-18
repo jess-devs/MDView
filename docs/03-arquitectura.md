@@ -78,3 +78,4 @@ que le faltan entradas es peor que no tener índice.
 | AD-18 | Cómo se activa un enlace al pulsarlo: `InteractiveText` con un contador de identificadores por documento | `features/enlaces-e-imagenes/decisiones.md` | activa |
 | AD-19 | Con qué se abre un enlace externo: crate `open`, función `that_detached`, sin fijar versión exacta | `features/enlaces-e-imagenes/decisiones.md` | activa |
 | AD-20 | Cómo se muestran las imágenes: `gpui::img()`, tipo `Inline` propio, resolución en `markdown::parse` | `features/enlaces-e-imagenes/decisiones.md` | activa |
+| AD-21 | Front matter: extracción propia sobre el texto crudo, no `ENABLE_YAML_STYLE_METADATA_BLOCKS` | `features/front-matter-y-html/decisiones.md` | activa |

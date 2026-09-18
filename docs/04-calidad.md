@@ -669,3 +669,44 @@ activo se topará con lo mismo.
 **Estado de la historia:** verificada. El único criterio pasa por
 observación directa, en las condiciones más estrictas de `plan.md` (tres
 reinicios completos, uno antes de cada medida).
+
+---
+
+## HU-01 (front-matter-y-html) — Ver el front matter como una tabla de propiedades
+
+Verificado el 2026-09-18, en la misma máquina de desarrollo. `cargo test`
+(9 casos: los 5 de `enlaces-e-imagenes` más 4 propios de esta historia sobre
+`extract_front_matter`) en verde. Compilado `target\debug\mdview.exe`.
+
+Documentos de prueba: `pruebas/hu-01-front-matter/documento.md` (front
+matter de cuatro propiedades, una con dos puntos en el valor — una hora—,
+seguido de un encabezado y un párrafo) y
+`pruebas/hu-01-front-matter/no-es-front-matter.md` (un párrafo, luego un
+`---`/`clave: valor`/`---` que no está en la primera línea del documento).
+
+| Criterio | Resultado | Evidencia |
+| --- | --- | --- |
+| CA-01.1 — Front matter al principio se muestra como tabla de dos columnas, antes de cualquier otro elemento | pasa | Captura: `titulo`/`autor`/`fecha`/`hora` en una tabla, en la parte alta de la ventana. |
+| CA-01.2 — Ni `---` ni `clave:` aparecen como texto | pasa | Misma captura: no se ve ningún `---` ni ninguna sintaxis de dos puntos pegada al nombre; solo nombre y valor en sus columnas. |
+| CA-01.3 — Las propiedades mantienen el orden del documento | pasa | Misma captura: `titulo`, `autor`, `fecha`, `hora`, en ese orden, igual que en el archivo. |
+| CA-01.4 — El encabezado y el párrafo posteriores se siguen mostrando | pasa | Misma captura: «Encabezado tras el front matter» y su párrafo, debajo de la tabla. |
+| CA-01.5 — Un `---` que no está en la primera línea no se trata como front matter | pasa | Captura de `no-es-front-matter.md`: sin tabla de propiedades; el primer `---` se ve como regla horizontal bajo el párrafo, y «clave: valor» seguido de `---` sin línea en blanco se muestra como encabezado —un encabezado *setext* de CommonMark, comportamiento del analizador ya existente, no de esta historia. |
+
+**Prueba de regresión.** `cargo test`: 9/9 en verde, incluyendo los 5 casos
+previos de `enlaces-e-imagenes` (el cambio no tocó `Inline`/`ImageRef`, y los
+tests lo confirman en verde sin haberlos revisado línea a línea de nuevo).
+
+**Nota de proceso — por qué no se usó
+`Options::ENABLE_YAML_STYLE_METADATA_BLOCKS` de `pulldown-cmark`.**
+Investigado en `plan.md` antes de escribir código: esa opción reconoce un
+bloque `---`/`---` en cualquier límite de bloque del documento, no solo en
+el primero — confirmado leyendo `scan_metadata_block` en el código fuente
+de `pulldown-cmark` 0.13.4, sin ninguna comprobación de posición. RF-12.1
+solo cuenta la primera línea, así que se escribió `extract_front_matter`
+como un paso previo sobre el texto crudo, antes de pasarlo a
+`pulldown_cmark::Parser`. El propio CA-01.5 es la verificación de que esta
+elección era necesaria: con la opción de la biblioteca sola, ese documento
+de prueba habría mostrado una tabla donde no debía.
+
+**Estado de la historia:** verificada. Los cinco criterios pasan por
+observación directa.

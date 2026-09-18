@@ -39,7 +39,8 @@ párrafo.
    un párrafo seguido de una regla horizontal— no se trata como front matter:
    se muestra igual que antes de esta historia, regla horizontal incluida.
 
-**Estado.** pendiente
+**Estado.** verificada. Los cinco criterios pasan por observación; el detalle
+está en `docs/04-calidad.md`.
 
 ---
 
