@@ -168,6 +168,24 @@ Origen: elegido por el usuario entre las alternativas ofrecidas (Fase 3). El
 valor concreto del ancho máximo no está fijado aquí: es una decisión de diseño
 que se registrará en `decisiones.md` al implementarlo.
 
+### RF-21 — Instalador con integración en el PATH
+
+El sistema debe ofrecer un instalador que copie el ejecutable a una carpeta
+fija y añada esa carpeta al PATH del usuario, de modo que `mdview archivo.md`
+funcione desde cualquier carpeta de una terminal, sin escribir la ruta
+completa del ejecutable.
+Origen: propuesto por el usuario el 2026-08-20 al preguntársele cómo debía
+registrarse la asociación de `.md`; confirmado como requisito propio al abrir
+la feature `distribucion` el 2026-09-18. Ver `01-alcance.md`.
+
+### RF-22 — Versión portable
+
+El sistema debe ofrecer, además del instalador, un empaquetado portable —sin
+instalación, sin escribir en el registro ni en el PATH— que el usuario pueda
+copiar y ejecutar desde cualquier carpeta, incluida una memoria USB.
+Origen: propuesto por el usuario el 2026-08-20 junto con RF-21; confirmado
+como requisito propio al abrir la feature `distribucion` el 2026-09-18.
+
 ## No funcionales
 
 ### RNF-01 — Tiempo hasta el documento visible

@@ -186,14 +186,15 @@ requisito cuando esta feature se abra.
 `integracion-con-windows`, pero el mecanismo con el que se registre dependerá de
 si existe instalador o no. Ver la pregunta abierta.
 
-**A verificar antes de construir RF-02:** desde Windows 8, la clave del registro
-que fija la aplicación predeterminada de una extensión está protegida con un
-hash que el sistema valida, para impedir que los programas se apropien de las
-extensiones al instalarse. Si eso es así, ningún mecanismo —instalador incluido—
-puede dejar MDView como predeterminada sin un clic del usuario en el diálogo de
-Windows; solo puede registrarla como opción disponible. **Está sin comprobar
-contra la documentación de Microsoft**, y hay que comprobarlo antes de escribir
-los criterios de aceptación de RF-02, porque cambia lo que se puede prometer.
+**Verificado el 2026-09-18, antes de escribir los criterios de aceptación de
+RF-02** (ver la pregunta cerrada correspondiente, más abajo): desde Windows 8,
+la clave del registro que fija la aplicación predeterminada de una extensión
+está protegida con un hash que el sistema valida, para impedir que los
+programas se apropien de las extensiones al instalarse. Ningún mecanismo
+—instalador incluido— puede dejar MDView como predeterminada sin un clic del
+usuario en el diálogo de Windows; solo puede registrarla como opción
+disponible en «Abrir con». RF-02 se refina con ese límite en
+`features/distribucion/requisitos.md`.
 
 ## Supuestos
 
@@ -236,8 +237,12 @@ Fase 3, y se respondieron al terminarla. Todo el 2026-08-20.
 | ¿Qué pasa con una línea de código más ancha que la ventana? | Se conserva entera y el bloque se desplaza horizontalmente por sí solo. Se añadió como cláusula de RF-10. |
 | ¿El texto se reajusta al cambiar el tamaño de la ventana? | Sí, hasta un ancho máximo de lectura, a partir del cual la columna queda centrada. Es ahora RF-20. |
 
-## Preguntas abiertas
+## Preguntas cerradas
 
-| Pregunta | Quién la responde |
+Añadidas aquí las que se cierran al abrirse la feature `distribucion`, el
+2026-09-18.
+
+| Pregunta | Respuesta |
 | --- | --- |
-| ¿La asociación de `.md` se hace con un instalador, con auto-registro al arrancar o con un registro explícito bajo demanda? | Sigue abierta, pero con dirección: el usuario declaró el 2026-08-20 que prefiere un instalador, y que la versión portable también le convence. Se resolverá junto con la feature de distribución, porque el mecanismo depende de si existe instalador. Decidirlo antes sería decidir a ciegas. |
+| ¿La asociación de `.md` se hace con un instalador, con auto-registro al arrancar o con un registro explícito bajo demanda? | Con un instalador (Inno Setup). El usuario ya había declarado el 2026-08-20 que lo prefería; se confirmó de nuevo el 2026-09-18 al abrir esta feature, tras aplazar RF-02 tres veces tras `varios-documentos-en-pestanas` e `integracion-con-windows` a la espera de esta decisión. |
+| ¿Se puede forzar MDView como aplicación predeterminada para `.md` desde el instalador? | No. Confirmado contra fuentes externas (ver `features/distribucion/plan.md`): desde Windows 8, la clave `UserChoice` de una extensión lleva un hash calculado a partir del SID del usuario, la extensión, el ProgId y una marca de tiempo, y Windows invalida la asociación si se escribe sin pasar por su propio diálogo. Ningún instalador, con o sin privilegios de administrador, puede evitarlo sin depender de un algoritmo no documentado que Microsoft puede romper en cualquier actualización — y además introdujo en 2025 una protección adicional (`UserChoiceLatest`) que inutiliza esos atajos. El instalador solo puede registrar MDView como una opción disponible en «Abrir con»; el último clic para hacerla predeterminada es del usuario. |

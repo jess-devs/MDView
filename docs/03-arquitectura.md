@@ -89,3 +89,4 @@ que le faltan entradas es peor que no tener índice.
 | AD-26 | Un clic muta `AppState`: `Entity<DocumentView>::update`, no una función libre | `features/varios-documentos-en-pestanas/decisiones.md` | activa |
 | AD-27 | Navegación por enlace: `LinkCtx` enhebrado por `render`; `activate_document_link` separado de `activate_link` | `features/varios-documentos-en-pestanas/decisiones.md` | activa |
 | AD-28 | Instancia única: Mutex de `windows` para detectar, archivo sondeado para transportar | `features/integracion-con-windows/decisiones.md` | activa |
+| AD-29 | Empaquetado: Inno Setup con registro en `HKCU`, sin forzar la aplicación predeterminada | `features/distribucion/decisiones.md` | activa |

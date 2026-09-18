@@ -4,8 +4,8 @@ Visor de archivos Markdown para escritorio, escrito en Rust con GPUI. Abre
 documentos `.md` renderizados en pestañas, con el objetivo de sustituir la
 costumbre de abrir un IDE solo para leer un archivo de texto.
 
-Estado: cinco features cerradas (veinticuatro historias verificadas). Ver
-la tabla de abajo.
+Estado: cinco features cerradas (veinticuatro historias verificadas), la
+sexta en curso. Ver la tabla de abajo.
 
 ## Documentación
 
@@ -23,17 +23,18 @@ tocar código.
 | `docs/features/enlaces-e-imagenes/` | Ídem de la segunda: enlaces externos e imágenes locales. |
 | `docs/features/front-matter-y-html/` | Ídem de la tercera: front matter como tabla de propiedades y un subconjunto de HTML incrustado. |
 | `docs/features/varios-documentos-en-pestanas/` | Ídem de la cuarta: varios documentos abiertos a la vez, en pestañas, y navegación entre ellos (RF-14). |
-| `docs/features/integracion-con-windows/` | Ídem de la quinta y última: asociación de `.md`, doble clic e instancia única. |
+| `docs/features/integracion-con-windows/` | Ídem de la quinta: asociación de `.md`, doble clic e instancia única (solo RF-03.1; RF-02 se aplazó a la sexta). |
+| `docs/features/distribucion/` | Ídem de la sexta y última: instalador, integración en el PATH y versión portable (RF-02.1, RF-21.1, RF-22.1). |
 
-Estado: las cinco features cerradas — `ver-un-documento`,
-`enlaces-e-imagenes`, `front-matter-y-html`, `varios-documentos-en-pestanas`
-e `integracion-con-windows` (solo RF-03.1; RF-02, asociación de `.md`,
-queda para cuando exista la feature de distribución, decisión del usuario
-del 2026-09-18).
+Estado: `ver-un-documento`, `enlaces-e-imagenes`, `front-matter-y-html`,
+`varios-documentos-en-pestanas` e `integracion-con-windows` cerradas.
+`distribucion` abierta, sus tres historias pendientes.
 
-El trabajo estaba dividido en cinco features, todas cerradas ya. El orden y
-el reparto de requisitos entre ellas está en
-`docs/features/enlaces-e-imagenes/plan.md`.
+El trabajo está dividido en seis features. El orden y el reparto de
+requisitos entre ellas está en `docs/features/enlaces-e-imagenes/plan.md`
+(las cinco primeras) y en `docs/features/distribucion/requisitos.md` (la
+sexta, abierta el 2026-09-18 cuando se resolvió el mecanismo de
+instalación).
 
 ## Reglas
 
