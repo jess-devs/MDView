@@ -32,7 +32,8 @@ documento de prueba distinto.
    cambios.
 4. CA-01.4 — La ventana del proceso ya en marcha pasa a primer plano.
 
-**Estado.** pendiente
+**Estado.** verificada. Los cuatro criterios pasan por observación; el
+detalle está en `docs/04-calidad.md`.
 
 ---
 
@@ -54,7 +55,8 @@ activo.
 2. CA-02.2 — La pestaña del documento pedido queda activa.
 3. CA-02.3 — La ventana pasa a primer plano, igual que en HU-01.
 
-**Estado.** pendiente
+**Estado.** verificada. Los tres criterios pasan por observación; el
+detalle está en `docs/04-calidad.md`.
 
 ---
 
@@ -74,7 +76,8 @@ menos un documento, invocando una segunda vez sin ningún argumento.
 2. CA-03.2 — La pestaña activa no cambia.
 3. CA-03.3 — Ningún documento abierto se ve alterado.
 
-**Estado.** pendiente
+**Estado.** verificada. Los tres criterios pasan por observación; el
+detalle está en `docs/04-calidad.md`.
 
 ---
 

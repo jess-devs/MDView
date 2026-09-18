@@ -8,6 +8,7 @@ gpui = "=0.2.2"
 gpui-component = { version = "=0.5.1", default-features = false }
 open = "5.4.2"
 pulldown-cmark = "0.13.4"
+windows = { version = "0.61.3", features = ["Win32_Foundation", "Win32_Security", "Win32_System_Threading"] }
 
 [profile.release]
 lto = true

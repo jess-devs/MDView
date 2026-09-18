@@ -3,14 +3,21 @@
 
 use std::{
     env,
+    ffi::OsStr,
     fs::OpenOptions,
     io::Write,
+    os::windows::ffi::OsStrExt,
     path::{Path, PathBuf},
-    time::{SystemTime, UNIX_EPOCH},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use gpui::{App, Application, AppContext, Entity, WindowOptions};
 use gpui_component::{Root, Theme};
+use windows::{
+    core::PCWSTR,
+    Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS},
+    Win32::System::Threading::CreateMutexW,
+};
 
 use crate::{document, markdown, render::DocumentView};
 
@@ -51,9 +58,24 @@ pub struct AppState {
     pub timing_path: Option<PathBuf>,
 }
 
+/// How often the running instance checks for a later invocation's request
+/// (RF-03.1). Not a criterion of any historia — plan.md's risk note is
+/// explicit that this is the first thing to adjust if it's noticeable, not
+/// the mechanism itself.
+const INSTANCE_POLL_INTERVAL: Duration = Duration::from_millis(200);
+
 pub fn run(start: SystemTime) {
     let paths: Vec<String> = env::args().skip(1).collect();
     let timing_path = env::var_os("MDVIEW_TIMING").map(PathBuf::from);
+
+    // RF-03.1: a request file nobody picked up belongs to a run that ended
+    // before it could — clear it before it's mistaken for one meant for
+    // this run (plan.md's risk note).
+    let _ = std::fs::remove_file(instance_request_path());
+    if is_another_instance_running() {
+        send_instance_request(&paths);
+        return; // No window: the running instance handles this invocation.
+    }
 
     let app = Application::new();
     app.run(move |cx| {
@@ -92,25 +114,95 @@ pub fn run(start: SystemTime) {
         };
 
         cx.spawn(async move |cx| {
-            cx.open_window(WindowOptions::default(), |window, cx| {
-                // gpui_component::init(cx) already synced once, before this
-                // window existed. Re-sync now against the real window (per
-                // AD-11), and keep syncing if the user changes the Windows
-                // theme while MDView is open.
-                Theme::sync_system_appearance(Some(window), cx);
-                window
-                    .observe_window_appearance(|window, cx| {
-                        Theme::sync_system_appearance(Some(window), cx);
-                    })
-                    .detach();
+            // Built here, not inside `open_window`'s closure, so a clone
+            // survives outside it for the polling loop below to reach
+            // (RF-03.1) — `Root` only exposes its child view as an opaque
+            // `AnyView`, not this concrete type.
+            let view = cx
+                .update(|cx| cx.new(|_| DocumentView::new(state)))
+                .expect("app was released before the window could open");
+            let poll_view = view.clone();
 
-                let view = cx.new(|_| DocumentView::new(state));
-                cx.new(|cx| Root::new(view, window, cx))
-            })
-            .expect("failed to open window");
+            let window_handle = cx
+                .open_window(WindowOptions::default(), move |window, cx| {
+                    // gpui_component::init(cx) already synced once, before this
+                    // window existed. Re-sync now against the real window (per
+                    // AD-11), and keep syncing if the user changes the Windows
+                    // theme while MDView is open.
+                    Theme::sync_system_appearance(Some(window), cx);
+                    window
+                        .observe_window_appearance(|window, cx| {
+                            Theme::sync_system_appearance(Some(window), cx);
+                        })
+                        .detach();
+
+                    cx.new(|cx| Root::new(view, window, cx))
+                })
+                .expect("failed to open window");
+
+            // RF-03.1: for as long as this instance runs, react to a later
+            // invocation's request instead of letting it open a window of
+            // its own.
+            loop {
+                cx.background_executor().timer(INSTANCE_POLL_INTERVAL).await;
+                let Some(request_paths) = take_instance_request() else { continue };
+                let _ = window_handle.update(cx, |_root, window, cx| {
+                    window.activate_window();
+                    poll_view.update(cx, |view, cx| {
+                        for path in &request_paths {
+                            open_or_activate_tab(&mut view.state, Path::new(path));
+                        }
+                        cx.notify();
+                    });
+                });
+            }
         })
         .detach();
     });
+}
+
+/// `true` if another MDView process already holds the single-instance
+/// mutex. The handle this creates is deliberately never closed — Win32
+/// releases a named mutex once its last handle closes, so an open handle
+/// for as long as the process runs is exactly what makes a *third*
+/// invocation see this one as "already running" too. `windows::Win32::Foundation::HANDLE`
+/// has no `Drop` impl (confirmed reading its definition, not assumed), so
+/// letting the `Result` fall out of scope already leaves it open; nothing
+/// further to do.
+fn is_another_instance_running() -> bool {
+    let name: Vec<u16> = OsStr::new("MDView-Instancia-Unica").encode_wide().chain(std::iter::once(0)).collect();
+    unsafe {
+        let _ = CreateMutexW(None, false, PCWSTR(name.as_ptr()));
+        GetLastError() == ERROR_ALREADY_EXISTS
+    }
+}
+
+fn instance_request_path() -> PathBuf {
+    std::env::temp_dir().join("mdview-instancia-peticion.txt")
+}
+
+/// Writes this invocation's paths — none, for RF-03.1's "just focus the
+/// window" case — for the running instance to pick up. Written to a
+/// temporary name first and renamed into place (`std::fs::rename` is
+/// atomic on the same volume) so the other process never reads a half
+/// written file.
+fn send_instance_request(paths: &[String]) {
+    let final_path = instance_request_path();
+    let tmp_path = final_path.with_extension("tmp");
+    if std::fs::write(&tmp_path, paths.join("\n")).is_ok() {
+        let _ = std::fs::rename(&tmp_path, &final_path);
+    }
+}
+
+/// Reads and removes a pending request, if there is one. `Some(vec![])`
+/// means a request with no paths (RF-03.1 invoked with none): still a real
+/// request — activate the window — distinct from `None`, meaning no
+/// invocation is waiting on anything.
+fn take_instance_request() -> Option<Vec<String>> {
+    let path = instance_request_path();
+    let content = std::fs::read_to_string(&path).ok()?;
+    let _ = std::fs::remove_file(&path);
+    Some(if content.is_empty() { Vec::new() } else { content.lines().map(String::from).collect() })
 }
 
 /// Turns a load failure into the message CA-05.1–CA-05.3 expect: it names

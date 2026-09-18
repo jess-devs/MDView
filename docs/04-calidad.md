@@ -1034,3 +1034,103 @@ código: la captura del primer intento es lo que lo delató.
 
 **Estado de la historia:** verificada. Los cuatro criterios pasan por
 observación directa.
+
+---
+
+## HU-01 (integracion-con-windows) — Una segunda invocación con una ruta nueva se atiende desde el proceso existente
+
+Verificado el 2026-09-18, en la misma máquina de desarrollo. Sin tests
+nuevos: el mecanismo completo —Mutex de Win32, archivo bajo `%TEMP%`,
+`WindowHandle::activate_window`— es E/S del sistema operativo de principio
+a fin, el mismo criterio de AD-17/AD-19 que ya eximía de tests a
+`app::activate_link` y a la carga de rutas. `cargo test`: 31/31 en verde
+(sin cambios). Compilado `target\debug\mdview.exe`.
+
+Documentos de prueba: `pruebas/instancia-doc-a.md` e `instancia-doc-b.md`.
+
+**Método.** Lanzado el proceso A con `instancia-doc-a.md`
+(`Start-Process -PassThru`, sin `-Wait`). Un segundo después, lanzado un
+proceso B con `instancia-doc-b.md`, también con `-PassThru`, comprobando su
+propiedad `HasExited` en vez de solo su ausencia de `Get-Process` —para
+distinguir «terminó por sí solo, como debía» de «nunca llegó a
+existir»—. El primer plano se confirmó con `GetForegroundWindow` +
+`GetWindowThreadProcessId` de Win32 (vía P/Invoke desde PowerShell), no
+solo mirando la captura: la ventana puede parecer al frente en una captura
+sin serlo a nivel de sistema operativo, la misma distinción que ya costó
+tiempo en `front-matter-y-html` con `textinputhost.exe`.
+
+| Criterio | Resultado | Evidencia |
+| --- | --- | --- |
+| CA-01.1 — Sin segundo proceso tras la segunda invocación | pasa | El proceso B, consultado un segundo después de lanzarlo, tenía `HasExited: True`; `Get-Process mdview` seguía devolviendo un único proceso, el A. |
+| CA-01.2 — El segundo documento en una pestaña nueva y activa | pasa | Captura: pestaña «instancia-doc-b.md» nueva, con «Documento B de instancia unica» visible. |
+| CA-01.3 — El documento ya abierto sigue en su pestaña | pasa | Misma captura: «instancia-doc-a.md» sigue en la barra de pestañas. |
+| CA-01.4 — La ventana pasa a primer plano | pasa | `GetForegroundWindow` devolvió el PID del proceso A justo después de la segunda invocación. |
+
+**Nota de proceso.** El diseño completo —por qué un archivo sondeado y no
+`WM_COPYDATA`, por qué el Mutex nunca se cierra— está en AD-28, investigado
+en `plan.md` antes de escribir código. La construcción de `DocumentView`
+se movió fuera del cierre de `open_window` para poder capturar un segundo
+`Entity` clonado antes de envolverlo en `Root`, que no expone su vista hija
+más que como `AnyView` opaco.
+
+**Estado de la historia:** verificada. Los cuatro criterios pasan por
+observación directa.
+
+---
+
+## HU-02 (integracion-con-windows) — Una segunda invocación con una ruta ya abierta activa su pestaña
+
+Verificado el 2026-09-18, en la misma máquina de desarrollo. Sin tests
+nuevos, mismo criterio que HU-01. `cargo test`: 31/31 en verde.
+
+Documentos de prueba: los mismos dos de HU-01.
+
+**Método.** Proceso A lanzado con las dos rutas a la vez (`instancia-doc-a.md`
+activa por ser la primera). Segunda invocación con la ruta de
+`instancia-doc-b.md`, la que no estaba activa.
+
+| Criterio | Resultado | Evidencia |
+| --- | --- | --- |
+| CA-02.1 — Mismo número de pestañas, ninguna nueva | pasa | Dos pestañas antes y después de la segunda invocación. |
+| CA-02.2 — La pestaña pedida queda activa | pasa | Captura: «instancia-doc-b.md» activa, con su contenido visible, tras haber arrancado con «instancia-doc-a.md» activa. |
+| CA-02.3 — La ventana pasa a primer plano | pasa | `GetForegroundWindow` devolvió el PID del proceso ya en marcha. |
+
+**Nota de proceso.** Sin código nuevo: la segunda invocación llega al mismo
+`open_or_activate_tab` que ya usa RF-14.1 (AD-27), a través del bucle de
+sondeo de HU-01. Esta historia comprueba que ese camino compartido se
+alcanza también desde una invocación por línea de comandos, no solo desde
+un clic.
+
+**Estado de la historia:** verificada. Los tres criterios pasan por
+observación directa.
+
+---
+
+## HU-03 (integracion-con-windows) — Una segunda invocación sin ninguna ruta trae la ventana a primer plano
+
+Verificado el 2026-09-18, en la misma máquina de desarrollo. Sin tests
+nuevos, mismo criterio que HU-01/HU-02. `cargo test`: 31/31 en verde.
+
+**Método.** Con el proceso ya en marcha (dos pestañas, «instancia-doc-b.md»
+activa), se llevó el foco a otra ventana (`explorer.exe`, vía
+`SetForegroundWindow`) antes de invocar MDView sin ningún argumento, para
+que CA-03.1 comprobara un cambio de foco real, no una ventana que ya
+estaba al frente por casualidad.
+
+| Criterio | Resultado | Evidencia |
+| --- | --- | --- |
+| CA-03.1 — La ventana pasa a primer plano | pasa | `GetForegroundWindow` devolvió el PID de MDView justo después, habiendo estado en `explorer.exe` justo antes. |
+| CA-03.2 — La pestaña activa no cambia | pasa | Captura: «instancia-doc-b.md» seguía activa, la misma que antes de la invocación sin ruta. |
+| CA-03.3 — Ningún documento se ve alterado | pasa | Misma captura: ambas pestañas y su contenido, sin cambios. |
+
+**Nota de proceso.** La petición vacía (`Vec::new()`, no `None`) es lo que
+distingue «invocado sin rutas, hay que activar la ventana igualmente» de
+«nadie ha pedido nada»: `take_instance_request` ya lo diseñó así en HU-01
+para que este caso no necesitara código adicional, solo esta verificación.
+
+**Estado de la historia:** verificada. Los tres criterios pasan por
+observación directa.
+
+Con esta historia, las tres de `integracion-con-windows` quedan
+verificadas: la última feature del proyecto por ahora, a falta de RF-02
+cuando exista la feature de distribución.

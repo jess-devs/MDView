@@ -3368,6 +3368,7 @@ dependencies = [
  "gpui-component",
  "open",
  "pulldown-cmark",
+ "windows 0.61.3",
 ]
 
 [[package]]
