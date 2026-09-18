@@ -1,6 +1,6 @@
 # Decisiones — enlaces-e-imagenes
 
-> Estado: en construcción, HU-01 a HU-03 implementadas
+> Estado: en construcción, HU-01 a HU-04 implementadas
 > Última actualización: 2026-09-18
 > Modo: new-feature
 

@@ -116,7 +116,8 @@ estos criterios no se pueden comprobar.
 3. CA-04.3 — Al abrir un enlace externo según HU-02 sí aparece tráfico, pero
    atribuido al proceso del navegador y no al de MDView.
 
-**Estado.** pendiente
+**Estado.** verificada. Los tres criterios pasan por observación; el detalle
+está en `docs/04-calidad.md`.
 
 ---
 

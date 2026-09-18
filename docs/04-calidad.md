@@ -557,3 +557,41 @@ descartadas, está en AD-20.
 
 **Estado de la historia:** verificada. Los cinco criterios pasan por
 observación directa.
+
+---
+
+## HU-04 (enlaces-e-imagenes) — Saber que MDView no se conecta a nada
+
+Verificado el 2026-09-18, en la misma máquina de desarrollo, con el método
+de `plan.md`. Documento de prueba: `pruebas/hu-04-red/documento.md`, con un
+enlace `https`, uno `http`, y una imagen referenciada por URL `http`
+(`http://example.com/no-deberia-pedirse.png`), seguidos de un encabezado y un
+párrafo final.
+
+**Método.** Lanzado `target\debug\mdview.exe` con `Start-Process -PassThru`
+para capturar el PID. Desde el lanzamiento y durante 6 segundos —de sobra
+para que el documento esté visible—, muestreo cada 80 ms (unas 75 muestras)
+de `Get-NetTCPConnection -OwningProcess <pid>` y
+`Get-NetUDPEndpoint -OwningProcess <pid>`.
+
+| Criterio | Resultado | Evidencia |
+| --- | --- | --- |
+| CA-04.1 — Ninguna conexión TCP ni extremo UDP atribuible al proceso, desde el arranque hasta el documento visible | pasa | 0 muestras con datos de 75 muestreadas a lo largo de 6 s. |
+| CA-04.2 — La imagen por URL muestra su texto alternativo, no un hueco ni un error | pasa | Captura: «imagen remota que nunca se descarga» aparece en el lugar de la imagen; el encabezado y párrafo posteriores se siguen mostrando. |
+| CA-04.3 — Al abrir un enlace externo (HU-02) sí aparece tráfico, pero del navegador, no de MDView | pasa | Tras pulsar el enlace `https`: `Get-NetTCPConnection -OwningProcess <pid de mdview>` sigue devolviendo 0; `Get-NetTCPConnection` sobre los procesos de Dia (el navegador) devuelve 5 conexiones `Established` en el puerto 443. `Get-Process mdview` → `Responding: True` después del clic. |
+
+**Límite del método, como pide `plan.md` anotar junto al resultado.** Es un
+muestreo cada 80 ms, no una captura continua: una conexión que se abriera y
+cerrara entera entre dos muestras no se vería. Da confianza razonable sobre
+75 muestras en 6 s, no una demostración. El propio CA-04.3 —el método sí ve
+tráfico cuando lo hay, sobre el navegador— es lo que respalda que la
+ausencia de tráfico de MDView en CA-04.1 no es que el método esté ciego.
+
+**Nota de proceso.** Ninguna dependencia nueva entró para esta historia:
+`markdown`/`render` no hacen peticiones de red por construcción (AD-20 ya lo
+estableció para las imágenes; los enlaces siguen sin pasar por nada más que
+`open::that_detached`, ver AD-19). No hizo falta ningún cambio de código
+para HU-04, solo el documento de prueba y la medición.
+
+**Estado de la historia:** verificada. Los tres criterios pasan por
+observación directa.
