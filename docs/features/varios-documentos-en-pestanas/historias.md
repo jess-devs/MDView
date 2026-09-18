@@ -35,7 +35,8 @@ tres documentos de prueba distintos.
    dos pestañas de las rutas válidas, y un aviso temporal (RF-17) nombra la
    que falló, sin pestaña propia para ella.
 
-**Estado.** pendiente
+**Estado.** verificada. Los cinco criterios pasan por observación; el
+detalle está en `docs/04-calidad.md`.
 
 ---
 

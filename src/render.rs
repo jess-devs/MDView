@@ -7,6 +7,7 @@ use gpui::*;
 use gpui_component::{
     notification::Notification,
     scroll::{ScrollableElement, ScrollbarAxis},
+    tab::{Tab, TabBar},
     ActiveTheme, *,
 };
 
@@ -61,33 +62,45 @@ impl Render for DocumentView {
 
         if self.state.no_path_given {
             column = column.child(render_empty_state(cx));
-        } else {
+        } else if let Some(tab) = self.state.tabs.get(self.state.active_tab) {
             let mut code_index = 0;
             let mut text_index = 0;
-            for block in &self.state.blocks {
+            for block in &tab.blocks {
                 column = column.child(render_block(block, &mut code_index, &mut text_index, window, cx));
             }
         }
 
+        let mut root = div().relative().size_full().v_flex();
+        if !self.state.tabs.is_empty() {
+            root = root.child(render_tab_bar(&self.state.tabs, self.state.active_tab));
+        }
         // `Root` does not render notifications/dialogs/sheets on its own;
         // the top-level view is expected to composite them in. Without this,
         // `window.push_notification(...)` above updates state but nothing
         // ever draws it.
-        div()
-            .relative()
-            .size_full()
-            .child(
-                div().size_full().overflow_y_scrollbar().child(
-                    div()
-                        .flex()
-                        .w_full()
-                        .justify_center()
-                        .p_8()
-                        .child(column),
-                ),
-            )
-            .children(Root::render_notification_layer(window, cx))
+        root.child(
+            div().flex_1().overflow_y_scrollbar().child(
+                div()
+                    .flex()
+                    .w_full()
+                    .justify_center()
+                    .p_8()
+                    .child(column),
+            ),
+        )
+        .children(Root::render_notification_layer(window, cx))
     }
+}
+
+/// Renders the tab bar (RF-05.1, RF-06.1): one `Tab` per open document,
+/// labeled with its file name — never a full path or the document's first
+/// heading (RF-06.1, `01-alcance.md` supuesto 5). Switching tabs is HU-02's
+/// job; this only shows which one is active.
+fn render_tab_bar(tabs: &[crate::app::DocumentTab], active_tab: usize) -> impl IntoElement {
+    TabBar::new("document-tabs").selected_index(active_tab).children(tabs.iter().map(|tab| {
+        let label = tab.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        Tab::new().label(label)
+    }))
 }
 
 /// The window shown when MDView is launched without a file (RF-19).

@@ -19,17 +19,31 @@ pub enum Mode {
     ReadOnly,
 }
 
+/// One open document (RF-01.1): its element tree, and the path that both
+/// names its tab (RF-06.1) and identifies it for RF-04.1's dedup — always
+/// canonicalized (`std::fs::canonicalize`), so two paths that resolve to the
+/// same file on disk compare equal without either caller re-deriving that.
+pub struct DocumentTab {
+    pub path: PathBuf,
+    pub blocks: Vec<markdown::Block>,
+}
+
 pub struct AppState {
     // Unread until a second `Mode` value exists; see AD-05.
     #[allow(dead_code)]
     pub mode: Mode,
-    pub blocks: Vec<markdown::Block>,
-    /// Set when the requested file could not be shown (RF-17). `render`
-    /// pushes it as a notification once, then clears it.
+    pub tabs: Vec<DocumentTab>,
+    /// Index into `tabs` of the tab currently shown. Meaningless (and
+    /// unread) while `tabs` is empty.
+    pub active_tab: usize,
+    /// Set when a requested file could not be shown (RF-17). `render`
+    /// pushes it as a notification once, then clears it. One or more paths
+    /// can fail in the same invocation (CA-01.5); their messages join into
+    /// this single notice rather than one each.
     pub pending_notice: Option<String>,
     /// No path was given at all (RF-19): show the onboarding text instead of
     /// a silently blank window. Distinct from a load error, which also
-    /// leaves `blocks` empty but must not show onboarding text over it.
+    /// leaves `tabs` empty but must not show onboarding text over it.
     pub no_path_given: bool,
     /// Process entry time, for the `MDVIEW_TIMING` startup measurement (AD-07).
     pub start: SystemTime,
@@ -38,34 +52,41 @@ pub struct AppState {
 }
 
 pub fn run(start: SystemTime) {
-    let path = env::args().nth(1);
+    let paths: Vec<String> = env::args().skip(1).collect();
     let timing_path = env::var_os("MDVIEW_TIMING").map(PathBuf::from);
 
     let app = Application::new();
     app.run(move |cx| {
         gpui_component::init(cx);
 
-        let mut blocks = Vec::new();
-        let mut pending_notice = None;
-        match path.as_deref() {
-            Some(path) => match document::load(path) {
+        let mut tabs: Vec<DocumentTab> = Vec::new();
+        let mut errors = Vec::new();
+
+        for path in &paths {
+            match document::load(path) {
                 // The document's directory, not the process's (CA-03.2):
                 // relative image paths (RF-11.1) resolve against where the
                 // `.md` file lives, wherever MDView was invoked from.
                 Ok(text) => {
-                    let base_dir = Path::new(path).parent();
-                    blocks = markdown::parse(&text, base_dir);
+                    let canonical = std::fs::canonicalize(path).unwrap_or_else(|_| PathBuf::from(path));
+                    if tabs.iter().any(|tab| tab.path == canonical) {
+                        continue; // RF-04.1: the same file, already open
+                    }
+                    let base_dir = canonical.parent();
+                    let blocks = markdown::parse(&text, base_dir);
+                    tabs.push(DocumentTab { path: canonical, blocks });
                 }
-                Err(error) => pending_notice = Some(error_message(path, error)),
-            },
-            None => {}
+                Err(error) => errors.push(error_message(path, error)),
+            }
         }
+        let pending_notice = if errors.is_empty() { None } else { Some(errors.join("\n")) };
 
         let state = AppState {
             mode: Mode::ReadOnly,
-            blocks,
+            tabs,
+            active_tab: 0,
             pending_notice,
-            no_path_given: path.is_none(),
+            no_path_given: paths.is_empty(),
             start,
             timing_path,
         };

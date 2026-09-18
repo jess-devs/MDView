@@ -887,3 +887,38 @@ observación directa.
 Con esta historia, las cuatro de RF-13.1 (HU-02 a HU-05) están construidas;
 queda pendiente el matiz de CA-02.4 anotado en HU-02, antes de cerrar la
 feature.
+
+---
+
+## HU-01 (varios-documentos-en-pestanas) — Abrir varios documentos a la vez
+
+Verificado el 2026-09-18, en la misma máquina de desarrollo. `cargo test`:
+31/31 en verde, sin casos nuevos —ver la nota de proceso de AD-25 sobre por
+qué—. Compilado `target\debug\mdview.exe`.
+
+Documentos de prueba: `pruebas/pestanas-doc-a.md`, `-b.md`, `-c.md`, cada
+uno con un encabezado y un párrafo que se identifican a simple vista («Documento
+A», «Documento B», «Documento C»).
+
+| Criterio | Resultado | Evidencia |
+| --- | --- | --- |
+| CA-01.1 — Tres rutas, tres pestañas | pasa | Captura: `mdview.exe doc-a doc-b doc-c` muestra tres pestañas, «pestanas-doc-a.md», «pestanas-doc-b.md», «pestanas-doc-c.md». |
+| CA-01.2 — La pestaña de la primera ruta es la activa | pasa | Misma captura: se ve «Documento A», el contenido de la primera ruta. |
+| CA-01.3 — Cada pestaña muestra el nombre de archivo | pasa | Misma captura, ampliada: los tres nombres, extensión incluida, no una ruta ni un encabezado. |
+| CA-01.4 — Ruta repetida en la lista, una sola pestaña | pasa | Lanzado con `doc-a doc-b doc-a`: dos pestañas, no tres. |
+| CA-01.5 — Ruta inexistente entre tres, las otras dos sí abren | pasa | Lanzado con `doc-a no-existe.md doc-b`: dos pestañas («pestanas-doc-a.md», «pestanas-doc-b.md») y un aviso «No se encontró «...\no-existe.md».», sin pestaña para ella. |
+
+**Prueba de regresión.** `cargo test`: 31/31 en verde, sin cambios respecto
+a `front-matter-y-html`: esta historia no tocó `markdown`, `html` ni
+`document`.
+
+**Nota de proceso.** `AppState` pasa de un documento a una lista de
+`DocumentTab`, identificados por ruta canonicalizada (RF-04.1), y la barra
+de pestañas usa `Tab`/`TabBar` de `gpui_component::tab` en vez de un
+componente propio. Decisión completa, con las alternativas, en AD-25. Sin
+tests nuevos: `app::run` toca el sistema de archivos, igual que ya hacía
+antes de esta historia, y sigue el criterio de AD-17/AD-19 de verificar esa
+clase de código por observación.
+
+**Estado de la historia:** verificada. Los cinco criterios pasan por
+observación directa.
