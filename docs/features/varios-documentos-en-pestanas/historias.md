@@ -103,7 +103,8 @@ enlace relativo a otro `.md` existente, uno a un `.md` que no existe, y uno
 4. CA-04.4 — Un enlace `http`/`https` en el mismo documento se sigue abriendo
    en el navegador (RF-15.1), sin que esta historia lo haya alterado.
 
-**Estado.** pendiente
+**Estado.** verificada. Los cuatro criterios pasan por observación; el
+detalle está en `docs/04-calidad.md`.
 
 ---
 

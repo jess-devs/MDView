@@ -111,3 +111,61 @@ que aparece, no se repite la investigación en esa historia.
   pánico, simplemente no hace nada.
 
 Estado: activa
+
+---
+
+## AD-27 — Navegación por enlace: `LinkCtx` enhebrado por `render`; `activate_document_link` separado de `activate_link`
+
+Fecha: 2026-09-18
+
+**Contexto.** RF-14.1 exige que un enlace a otro `.md`, resuelto relativo al
+directorio del documento activo, abra una pestaña nueva o active la
+existente. `render_text` —la única función que construye el `on_click` de
+cualquier enlace— hasta ahora solo necesitaba la URL; RF-14.1 le añade dos
+necesidades más: el directorio del documento (para resolver la ruta) y
+acceso a `AppState` (para mutarlo, con el patrón de `Entity::update` de
+AD-26).
+
+**Decisión — cómo llega el contexto hasta `render_text`.** Un `struct
+LinkCtx { doc_dir: Option<PathBuf>, view: Entity<DocumentView> }`,
+construido una vez en `DocumentView::render` y pasado por referencia junto
+a `cx` por toda la cadena (`render_block` → `render_paragraph`/`render_list`/
+`render_table`/`render_centered`/... → `render_text`). Alternativa
+descartada: un parámetro `doc_dir: Option<&Path>` y otro `view:
+&Entity<DocumentView>` sueltos, en vez de una sola estructura — más ruido
+en cada firma de función para la misma cantidad de información, sin
+ninguna ventaja real.
+
+**Decisión — dónde vive la lógica de «qué hacer con esta URL».**
+`app::activate_document_link(url, doc_dir, view, cx)` es una función
+**nueva**, no una ampliación de `app::activate_link`: seguirá habiendo
+contextos —ninguno todavía, pero la distinción ya existe en el código— sin
+documento activo del que depender, para los que `activate_link` solo abre
+el navegador sigue siendo el contrato correcto y más simple. La nueva
+función delega en la vieja para `http`/`https`, y añade la resolución de
+ruta y la llamada a `open_or_activate_tab` para lo demás.
+
+**Decisión — por qué `open_or_activate_tab` no es el mismo bucle que usa
+`run`.** El bucle de carga inicial (RF-01.1, HU-01) nunca debe mover
+`active_tab` al toparse con una ruta repetida: CA-01.2 exige que la primera
+pestaña sea la activa al arrancar, sin importar en qué posición de la lista
+de argumentos se repita una ruta más tarde. RF-14.1, en cambio, exige
+exactamente lo contrario: activar siempre la pestaña del documento al que
+se navega (CA-04.2). Forzar una sola función para los dos casos habría
+significado un parámetro booleano —`¿mover active_tab?`— disfrazando dos
+comportamientos distintos de una sola función; se quedan separadas.
+
+**Consecuencias.**
+
+- `DocumentView.state` pasa de privado a `pub(crate)`: `activate_document_link`
+  necesita alcanzarlo desde `app`, dentro del cierre de
+  `Entity::update` (el mismo patrón de AD-26, aplicado desde fuera de
+  `render` por primera vez).
+- Encontrado por observación, no por lectura de código: `doc_dir` ya venía
+  canonicalizado desde `DocumentTab.path` (AD-25), así que el mensaje de
+  RF-17 para un enlace roto mostraba el prefijo `\\?\` de rutas extendidas
+  de Windows — inconsistente con el mismo aviso cuando la ruta mala viene
+  de la línea de comandos, que no está canonicalizada. Se quita ese
+  prefijo antes de construir el mensaje.
+
+Estado: activa

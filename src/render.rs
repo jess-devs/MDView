@@ -1,7 +1,10 @@
 //! Translates the element tree into on-screen components, and the theme.
 //! Owns no knowledge of the filesystem or of Markdown syntax.
 
-use std::ops::Range;
+use std::{
+    ops::Range,
+    path::{Path, PathBuf},
+};
 
 use gpui::*;
 use gpui_component::{
@@ -27,8 +30,27 @@ const HORIZONTAL_PADDING: f32 = 64.0;
 const BODY_SIZE: f32 = 16.0;
 
 pub struct DocumentView {
-    state: AppState,
+    // `pub(crate)`, not private: RF-14.1's `app::activate_document_link`
+    // needs to reach it from inside an `Entity<DocumentView>::update`
+    // closure (AD-26's pattern), the same way `render_tab_bar`'s own
+    // closures already do from within this module.
+    pub(crate) state: AppState,
     timing_scheduled: bool,
+}
+
+/// What a clicked link needs beyond its own URL (RF-14.1, RF-15.1):
+/// the active document's directory, to resolve a relative `.md` destination
+/// against, and a handle to mutate `AppState` when one should open —
+/// `app::activate_document_link` does the deciding, this just carries what
+/// it needs into every place a link can appear. Threaded alongside `cx`
+/// through the same functions that already take it, rather than adding a
+/// second, unrelated parameter to each — `render_text` is the only one that
+/// reads it, but it's reachable from a heading, a table cell, or a `<div
+/// align="center">`, not only a paragraph.
+#[derive(Clone)]
+struct LinkCtx {
+    doc_dir: Option<PathBuf>,
+    view: Entity<DocumentView>,
 }
 
 impl DocumentView {
@@ -64,10 +86,11 @@ impl Render for DocumentView {
         if self.state.no_path_given {
             column = column.child(render_empty_state(cx));
         } else if let Some(tab) = self.state.tabs.get(self.state.active_tab) {
+            let link_ctx = LinkCtx { doc_dir: tab.path.parent().map(Path::to_path_buf), view: cx.entity() };
             let mut code_index = 0;
             let mut text_index = 0;
             for block in &tab.blocks {
-                column = column.child(render_block(block, &mut code_index, &mut text_index, window, cx));
+                column = column.child(render_block(block, &mut code_index, &mut text_index, &link_ctx, window, cx));
             }
         }
 
@@ -186,11 +209,12 @@ fn render_block(
     block: &Block,
     code_index: &mut usize,
     text_index: &mut usize,
+    link_ctx: &LinkCtx,
     window: &mut Window,
     cx: &mut App,
 ) -> AnyElement {
     match block {
-        Block::FrontMatter(properties) => render_front_matter(properties, text_index, cx).into_any_element(),
+        Block::FrontMatter(properties) => render_front_matter(properties, text_index, link_ctx, cx).into_any_element(),
         Block::Heading(level, spans) => {
             let id = *text_index;
             *text_index += 1;
@@ -198,10 +222,10 @@ fn render_block(
                 .w_full()
                 .whitespace_normal()
                 .text_size(px(heading_size(*level)))
-                .child(render_text(spans, true, ("text-block", id), cx))
+                .child(render_text(spans, true, ("text-block", id), link_ctx, cx))
                 .into_any_element()
         }
-        Block::Paragraph(inlines) => render_paragraph(inlines, text_index, cx),
+        Block::Paragraph(inlines) => render_paragraph(inlines, text_index, link_ctx, cx),
         Block::ThematicBreak => div().w_full().h(px(1.0)).bg(cx.theme().border).into_any_element(),
         Block::Quote(blocks) => {
             let mut quote = div()
@@ -212,15 +236,15 @@ fn render_block(
                 .border_l_2()
                 .border_color(cx.theme().border);
             for b in blocks {
-                quote = quote.child(render_block(b, code_index, text_index, window, cx));
+                quote = quote.child(render_block(b, code_index, text_index, link_ctx, window, cx));
             }
             quote.into_any_element()
         }
         Block::List { ordered, start, items } => {
-            render_list(*ordered, *start, items, code_index, text_index, window, cx).into_any_element()
+            render_list(*ordered, *start, items, code_index, text_index, link_ctx, window, cx).into_any_element()
         }
-        Block::Table { header, rows } => render_table(header, rows, text_index, cx).into_any_element(),
-        Block::Centered(inlines) => render_centered(inlines, text_index, cx),
+        Block::Table { header, rows } => render_table(header, rows, text_index, link_ctx, cx).into_any_element(),
+        Block::Centered(inlines) => render_centered(inlines, text_index, link_ctx, cx),
         Block::Details { summary, children } => {
             let mut container = div().v_flex().gap_2().w_full();
             if !summary.is_empty() {
@@ -231,11 +255,11 @@ fn render_block(
                         .w_full()
                         .whitespace_normal()
                         .text_size(px(BODY_SIZE))
-                        .child(render_text(summary, true, ("text-block", id), cx)),
+                        .child(render_text(summary, true, ("text-block", id), link_ctx, cx)),
                 );
             }
             for child in children {
-                container = container.child(render_block(child, code_index, text_index, window, cx));
+                container = container.child(render_block(child, code_index, text_index, link_ctx, window, cx));
             }
             container.into_any_element()
         }
@@ -293,6 +317,7 @@ fn render_list(
     items: &[ListItem],
     code_index: &mut usize,
     text_index: &mut usize,
+    link_ctx: &LinkCtx,
     window: &mut Window,
     cx: &mut App,
 ) -> impl IntoElement {
@@ -308,7 +333,7 @@ fn render_list(
 
         let mut content = div().v_flex().gap_2().w_full();
         for block in &item.children {
-            content = content.child(render_block(block, code_index, text_index, window, cx));
+            content = content.child(render_block(block, code_index, text_index, link_ctx, window, cx));
         }
 
         list = list.child(
@@ -328,7 +353,7 @@ fn render_list(
 /// Renders the document's front matter as a two-column properties table
 /// (RF-12.1), reusing the same row styling as a Markdown table: front matter
 /// is metadata, not something a reader edits, so it doesn't need its own look.
-fn render_front_matter(properties: &[(String, String)], text_index: &mut usize, cx: &App) -> AnyElement {
+fn render_front_matter(properties: &[(String, String)], text_index: &mut usize, link_ctx: &LinkCtx, cx: &App) -> AnyElement {
     if properties.is_empty() {
         // A `---`/`---` block with nothing recognizable as `key: value` in
         // between: nothing to show, and nothing worth an empty table for.
@@ -345,23 +370,35 @@ fn render_front_matter(properties: &[(String, String)], text_index: &mut usize, 
         })
         .collect();
 
-    render_table(&[], &rows, text_index, cx).into_any_element()
+    render_table(&[], &rows, text_index, link_ctx, cx).into_any_element()
 }
 
-fn render_table(header: &[Vec<Span>], rows: &[Vec<Vec<Span>>], text_index: &mut usize, cx: &App) -> impl IntoElement {
+fn render_table(
+    header: &[Vec<Span>],
+    rows: &[Vec<Vec<Span>>],
+    text_index: &mut usize,
+    link_ctx: &LinkCtx,
+    cx: &App,
+) -> impl IntoElement {
     let mut table = div().v_flex().w_full();
 
     if !header.is_empty() {
-        table = table.child(render_table_row(header, true, text_index, cx));
+        table = table.child(render_table_row(header, true, text_index, link_ctx, cx));
     }
     for row in rows {
-        table = table.child(render_table_row(row, false, text_index, cx));
+        table = table.child(render_table_row(row, false, text_index, link_ctx, cx));
     }
 
     table
 }
 
-fn render_table_row(cells: &[Vec<Span>], is_header: bool, text_index: &mut usize, cx: &App) -> impl IntoElement {
+fn render_table_row(
+    cells: &[Vec<Span>],
+    is_header: bool,
+    text_index: &mut usize,
+    link_ctx: &LinkCtx,
+    cx: &App,
+) -> impl IntoElement {
     let mut row = div().flex().w_full().gap_4().p_2().text_size(px(BODY_SIZE));
     if is_header {
         row = row.bg(cx.theme().muted).border_b_2().border_color(cx.theme().border);
@@ -376,7 +413,7 @@ fn render_table_row(cells: &[Vec<Span>], is_header: bool, text_index: &mut usize
             div()
                 .flex_1()
                 .whitespace_normal()
-                .child(render_text(cell, is_header, ("text-block", id), cx)),
+                .child(render_text(cell, is_header, ("text-block", id), link_ctx, cx)),
         );
     }
 
@@ -391,7 +428,7 @@ fn render_table_row(cells: &[Vec<Span>], is_header: bool, text_index: &mut usize
 /// inline — the common case this feature's criteria test, an image alone on
 /// its own line, still renders as just that one image, nothing stacked
 /// around it.
-fn render_paragraph(inlines: &[Inline], text_index: &mut usize, cx: &App) -> AnyElement {
+fn render_paragraph(inlines: &[Inline], text_index: &mut usize, link_ctx: &LinkCtx, cx: &App) -> AnyElement {
     if let [Inline::Image(image)] = inlines {
         return render_image(image);
     }
@@ -404,7 +441,7 @@ fn render_paragraph(inlines: &[Inline], text_index: &mut usize, cx: &App) -> Any
             Inline::Span(span) => run.push(span.clone()),
             Inline::Image(image) => {
                 if !run.is_empty() {
-                    children.push(render_text_block(&run, text_index, cx));
+                    children.push(render_text_block(&run, text_index, link_ctx, cx));
                     run.clear();
                 }
                 children.push(render_image(image));
@@ -412,7 +449,7 @@ fn render_paragraph(inlines: &[Inline], text_index: &mut usize, cx: &App) -> Any
         }
     }
     if !run.is_empty() {
-        children.push(render_text_block(&run, text_index, cx));
+        children.push(render_text_block(&run, text_index, link_ctx, cx));
     }
 
     let mut column = div().v_flex().gap_2().w_full();
@@ -426,14 +463,14 @@ fn render_paragraph(inlines: &[Inline], text_index: &mut usize, cx: &App) -> Any
 /// always has been — factored out of `render_block`'s old paragraph arm so
 /// `render_paragraph` can call it once per text run instead of once per
 /// paragraph.
-fn render_text_block(spans: &[Span], text_index: &mut usize, cx: &App) -> AnyElement {
+fn render_text_block(spans: &[Span], text_index: &mut usize, link_ctx: &LinkCtx, cx: &App) -> AnyElement {
     let id = *text_index;
     *text_index += 1;
     div()
         .w_full()
         .whitespace_normal()
         .text_size(px(BODY_SIZE))
-        .child(render_text(spans, false, ("text-block", id), cx))
+        .child(render_text(spans, false, ("text-block", id), link_ctx, cx))
         .into_any_element()
 }
 
@@ -442,7 +479,7 @@ fn render_text_block(spans: &[Span], text_index: &mut usize, cx: &App) -> AnyEle
 /// instead of `.w_full()`, and an image sits in a row centered on the cross
 /// axis — `render_paragraph`'s text blocks are already `w_full()`, which
 /// leaves nothing for centering to do.
-fn render_centered(inlines: &[Inline], text_index: &mut usize, cx: &App) -> AnyElement {
+fn render_centered(inlines: &[Inline], text_index: &mut usize, link_ctx: &LinkCtx, cx: &App) -> AnyElement {
     let mut column = div().v_flex().gap_2().w_full().items_center();
     let mut run: Vec<Span> = Vec::new();
 
@@ -457,7 +494,7 @@ fn render_centered(inlines: &[Inline], text_index: &mut usize, cx: &App) -> AnyE
             .text_center()
             .whitespace_normal()
             .text_size(px(BODY_SIZE))
-            .child(render_text(run, false, ("text-block", id), cx))
+            .child(render_text(run, false, ("text-block", id), link_ctx, cx))
             .into_any_element();
         run.clear();
         Some(element)
@@ -566,7 +603,7 @@ fn render_spans(spans: &[Span], bold: bool, cx: &App) -> (StyledText, Vec<(Range
 /// (RF-15.1): activating one of those ranges hands the URL to `app`, which
 /// decides what "activate a link" means — `render` only knows how to detect
 /// a click and where the link's text sits in the combined string.
-fn render_text(spans: &[Span], bold: bool, id: impl Into<ElementId>, cx: &App) -> AnyElement {
+fn render_text(spans: &[Span], bold: bool, id: impl Into<ElementId>, link_ctx: &LinkCtx, cx: &App) -> AnyElement {
     let (styled, links) = render_spans(spans, bold, cx);
     if links.is_empty() {
         return styled.into_any_element();
@@ -574,10 +611,11 @@ fn render_text(spans: &[Span], bold: bool, id: impl Into<ElementId>, cx: &App) -
 
     let ranges: Vec<Range<usize>> = links.iter().map(|(range, _)| range.clone()).collect();
     let urls: Vec<String> = links.into_iter().map(|(_, url)| url).collect();
+    let link_ctx = link_ctx.clone();
 
     InteractiveText::new(id, styled)
-        .on_click(ranges, move |ix, _window, _cx| {
-            crate::app::activate_link(&urls[ix]);
+        .on_click(ranges, move |ix, _window, cx| {
+            crate::app::activate_document_link(&urls[ix], link_ctx.doc_dir.as_deref(), &link_ctx.view, cx);
         })
         .into_any_element()
 }

@@ -982,3 +982,55 @@ ahora sí se ve.
 
 **Estado de la historia:** verificada. Los tres criterios pasan por
 observación directa.
+
+---
+
+## HU-04 (varios-documentos-en-pestanas) — Navegar a otro documento desde un enlace
+
+Verificado el 2026-09-18, en la misma máquina de desarrollo. `cargo test`:
+31/31 en verde, sin casos nuevos —esta historia no tocó `markdown` ni
+`html`, solo cómo `render`/`app` reaccionan al clic ya analizado—.
+Compilado `target\debug\mdview.exe`.
+
+Documento de prueba: `pruebas/hu-04-enlaces-md/documento.md`, con un enlace
+a `otro.md` (existe, en la misma carpeta), uno a `no-existe.md` y uno
+`https`.
+
+| Criterio | Resultado | Evidencia |
+| --- | --- | --- |
+| CA-04.1 — Enlace a otro `.md` existente abre una pestaña nueva y la activa | pasa | Captura: clic en «otro documento» abre la pestaña «otro.md», con «Otro documento» visible. |
+| CA-04.2 — Enlace a un `.md` ya abierto activa su pestaña, no crea otra | pasa | Captura: de vuelta en «documento.md», clic de nuevo en «otro documento»: activa la pestaña «otro.md» ya existente — solo dos pestañas en todo momento, nunca tres. |
+| CA-04.3 — Enlace a un `.md` que no existe muestra el aviso de RF-17, sin pestaña nueva | pasa | Captura: clic en «documento que no existe»: aviso «No se encontró «D:\Code\Rust\MDView\pruebas\hu-04-enlaces-md\no-existe.md».», sigue habiendo una sola pestaña, «documento.md» sigue mostrándose. |
+| CA-04.4 — Un enlace `http`/`https` se sigue abriendo en el navegador | pasa | Clic en «externo»: procesos nuevos de Dia (el navegador) arrancan justo después (`Get-Process Dia` con `StartTime` a los segundos del clic). |
+
+**Prueba de regresión.** `cargo test`: 31/31 en verde.
+
+**Nota de proceso — primer clic que necesita el directorio del documento,
+no solo el estado.** `render_text` es la única función que construye el
+`on_click` de un enlace, pero es alcanzable desde un encabezado, una celda
+de tabla, un `<div>` centrado, el resumen de un `details`... no solo un
+párrafo. En vez de añadir un parámetro más a cada función intermedia, se
+introdujo `LinkCtx` (directorio del documento activo + el mismo
+`Entity<DocumentView>` de AD-26), enhebrado junto a `cx` por toda la cadena
+de `render_block` hacia abajo. `app::activate_document_link` decide qué
+significa el clic: `http`/`https` sigue yendo a `activate_link`
+sin cambios; lo demás se resuelve como ruta relativa al directorio del
+documento, y si termina en `.md`, `open_or_activate_tab` abre una pestaña
+nueva o activa la existente (RF-04.1) — una función deliberadamente
+distinta del bucle de carga inicial de `run`, porque ese no puede permitir
+que una ruta repetida mueva `active_tab` (CA-01.2), y esta sí necesita
+hacerlo siempre (CA-04.2). Decisión completa en AD-27.
+
+**Nota de proceso — una ruta canonicalizada se colaba en un aviso.** El
+primer intento de CA-04.3 mostró «No se encontró
+«\\?\D:\Code\Rust\MDView\...\no-existe.md».» — el prefijo `\\?\` de rutas
+extendidas de Windows, que `std::fs::canonicalize` deja en `DocumentTab.path`
+(AD-25) y que por tanto heredaba `doc_dir`. El aviso de `run` para una ruta
+mala en línea de comandos no lo tiene, porque usa la cadena tal como llegó,
+sin canonicalizar. Corregido quitando ese prefijo antes de construir el
+mensaje, para que las dos vías de RF-17 —línea de comandos y RF-14.1— lean
+igual. Encontrado y corregido por observación, no por inspección del
+código: la captura del primer intento es lo que lo delató.
+
+**Estado de la historia:** verificada. Los cuatro criterios pasan por
+observación directa.

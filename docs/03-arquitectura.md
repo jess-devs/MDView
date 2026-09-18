@@ -87,3 +87,4 @@ que le faltan entradas es peor que no tener índice.
 | AD-24 | `details`/`summary`: siempre visible, sin plegado interactivo | `features/front-matter-y-html/decisiones.md` | activa |
 | AD-25 | `AppState` con una lista de pestañas; identidad por ruta canonicalizada; `Tab`/`TabBar` de `gpui-component` | `features/varios-documentos-en-pestanas/decisiones.md` | activa |
 | AD-26 | Un clic muta `AppState`: `Entity<DocumentView>::update`, no una función libre | `features/varios-documentos-en-pestanas/decisiones.md` | activa |
+| AD-27 | Navegación por enlace: `LinkCtx` enhebrado por `render`; `activate_document_link` separado de `activate_link` | `features/varios-documentos-en-pestanas/decisiones.md` | activa |

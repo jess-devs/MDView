@@ -9,7 +9,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use gpui::{Application, AppContext, WindowOptions};
+use gpui::{App, Application, AppContext, Entity, WindowOptions};
 use gpui_component::{Root, Theme};
 
 use crate::{document, markdown, render::DocumentView};
@@ -155,6 +155,66 @@ fn epoch_millis(time: SystemTime) -> u128 {
 pub fn activate_link(url: &str) {
     if url.starts_with("http://") || url.starts_with("https://") {
         let _ = open::that_detached(url);
+    }
+}
+
+/// Reacts to a click on any link span, now that a document can navigate to
+/// another one (RF-14.1): `http`/`https` still goes to the browser exactly
+/// like `activate_link`; a destination that resolves, relative to
+/// `doc_dir`, to a `.md` file opens it — a new tab, or its existing one
+/// (RF-04.1). Anything else (`mailto:`, an `.md` that doesn't exist —
+/// that still shows the RF-17 notice, not silence) falls through to doing
+/// nothing further, same as before this historia. `doc_dir` is `None` only
+/// when there is no current document to be relative to, which in practice
+/// means there is no link to have clicked either.
+pub fn activate_document_link(url: &str, doc_dir: Option<&Path>, view: &Entity<DocumentView>, cx: &mut App) {
+    if url.starts_with("http://") || url.starts_with("https://") {
+        activate_link(url);
+        return;
+    }
+
+    let Some(doc_dir) = doc_dir else { return };
+    let target = doc_dir.join(url);
+    let is_md = target.extension().is_some_and(|ext| ext.eq_ignore_ascii_case("md"));
+    if !is_md {
+        return;
+    }
+
+    view.update(cx, |view, cx| {
+        open_or_activate_tab(&mut view.state, &target);
+        cx.notify();
+    });
+}
+
+/// Opens `target` in a new tab, or activates its tab if it's already open
+/// (RF-04.1) — RF-14.1's navigation only, not the initial command-line load
+/// in `run`: that has its own loop, because a repeated path there must
+/// never move `active_tab` away from the first argument (CA-01.2), which is
+/// exactly what activating an existing tab here is supposed to do.
+fn open_or_activate_tab(state: &mut AppState, target: &Path) {
+    let canonical = std::fs::canonicalize(target).unwrap_or_else(|_| target.to_path_buf());
+    if let Some(ix) = state.tabs.iter().position(|tab| tab.path == canonical) {
+        state.active_tab = ix;
+        return;
+    }
+    match document::load(&canonical) {
+        Ok(text) => {
+            let base_dir = canonical.parent();
+            let blocks = markdown::parse(&text, base_dir);
+            state.tabs.push(DocumentTab { path: canonical, blocks });
+            state.active_tab = state.tabs.len() - 1;
+        }
+        Err(error) => {
+            // `doc_dir` is already canonicalized (RF-04.1 needs it to be),
+            // so `target` carries Windows' `\\?\`-prefixed verbatim form
+            // even though `canonicalize` itself just failed above. RF-17's
+            // message should read like the one the initial command-line
+            // load shows: the path as written, not as the filesystem API
+            // happens to spell it.
+            let shown = target.to_string_lossy();
+            let shown = shown.strip_prefix(r"\\?\").unwrap_or(&shown);
+            state.pending_notice = Some(error_message(shown, error));
+        }
     }
 }
 
