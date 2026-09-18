@@ -730,7 +730,7 @@ alrededor, y `img/foto.png` (200×120, generada con `System.Drawing`) para el
 | CA-02.1 — `<b>`/`<strong>` en negrita | pasa | Captura: «negrita en b» y «negrita en strong» en negrita, igual que el resto del texto en negrita del documento. |
 | CA-02.2 — `<i>`/`<em>` en cursiva | pasa | Misma captura: «cursiva en i» y «cursiva en em» en cursiva. |
 | CA-02.3 — `<code>` con tipografía monoespaciada y fondo | pasa | Misma captura: «codigo en linea» en monoespaciada con fondo distinguible, igual que el código en línea Markdown ya verificado en HU-02 de `ver-un-documento`. |
-| CA-02.4 — `<a href>` distinguible y clicable como un enlace Markdown | **pasa la parte visual; bloqueada la apertura del navegador** | Captura: «enlace desde HTML» subrayado, igual que un enlace Markdown. El clic no se pudo repetir esta vez: `textinputhost.exe` (proceso de Windows para teclado táctil/IME) se reporta al frente y bloquea el clic sobre la ventana de MDView, en todos los intentos —incluido forzar el foco con `SetForegroundWindow` y relanzar la app—, sin relación con el código de esta historia. El mecanismo de clic en sí (`Span.url` → `InteractiveText::on_click` → `app::activate_link`) es el mismo, sin cambios, que CA-02.1 a CA-02.5 de HU-02 en `enlaces-e-imagenes` ya verificaron por observación; lo único nuevo aquí es que el `href` se extrae de un atributo HTML en vez de la sintaxis `[texto](url)`, y eso sí está probado (`inline_html_a_carries_the_href_as_url`). Aun así, este archivo no da un criterio por `pasa` sin haberlo visto: queda pendiente repetir el clic antes de cerrar la feature. |
+| CA-02.4 — `<a href>` distinguible y clicable como un enlace Markdown | **pasa la parte visual; bloqueada la confirmación visual de la apertura** | Captura: «enlace desde HTML» subrayado, igual que un enlace Markdown. Repetido el clic más tarde, ese día: esta vez sí llegó a MDView sin el bloqueo de `textinputhost.exe` del primer intento, y aparecieron procesos nuevos de Dia (el navegador) justo después (`Get-Process Dia` con `StartTime` a los pocos segundos del clic). No se pudo confirmar por captura qué URL mostraba esa pestaña: traer la ventana de Dia al frente exigía interactuar con la barra de tareas, y el permiso sobre «File Explorer» que eso requiere fue denegado. Este archivo no da un criterio por `pasa` completo sin haber visto la pestaña, así que queda con este matiz en vez de darlo por cerrado del todo — pero con más evidencia que antes, no menos: el clic se entregó, y algo reaccionó a él. |
 | CA-02.5 — `<img>` se muestra como la imagen, resuelta contra el directorio del documento | pasa | Captura: la imagen (óvalo verde) se ve en el punto donde está escrita. |
 | CA-02.6 — `<br>` produce un salto de línea | pasa | Captura: «y un salto» termina una línea y «de linea, seguido...» empieza la siguiente, dentro del mismo bloque de texto. |
 | CA-02.7 — Una etiqueta no listada muestra su texto sin su marcado | pasa | Captura: «texto de span» se ve igual que el texto que lo rodea, sin ningún indicio de la etiqueta `<span class="x">` que lo envolvía. |
@@ -757,8 +757,12 @@ esta sesión, no una que se esconda: queda escrita aquí y en `historias.md`
 para que quien la lea después sepa que CA-02.4 se retomó, no que se ignoró.
 
 **Estado de la historia:** en curso. Seis de los siete criterios pasan por
-observación directa; CA-02.4 queda con la apertura del navegador bloqueada
-por el entorno, a la espera de repetir el clic.
+observación directa; CA-02.4 queda con un matiz —ver arriba— en la
+confirmación visual de qué pestaña abrió el navegador. El mecanismo en sí
+(`Span.url` → `InteractiveText::on_click` → `app::activate_link`) es
+código sin cambios respecto al ya verificado en HU-02 de
+`enlaces-e-imagenes`; lo único nuevo en esta historia es extraer el `href`
+de un atributo HTML, cubierto por `inline_html_a_carries_the_href_as_url`.
 
 ---
 

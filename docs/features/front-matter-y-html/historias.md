@@ -78,9 +78,10 @@ párrafo que mezcla las ocho etiquetas con texto Markdown normal alrededor.
 
 **Estado.** en curso. Seis de los siete criterios pasan por observación
 completa; CA-02.4 pasa en su parte visual (el enlace se ve distinguible) y
-queda bloqueado en la apertura del navegador por un obstáculo del entorno de
-esta sesión (`textinputhost.exe` impide el clic), no por el código — ver
-`docs/04-calidad.md`. Se retoma antes de cerrar la feature.
+en que el clic llega a MDView y el navegador reacciona (procesos nuevos
+justo después), pero falta la confirmación visual de qué pestaña abrió —
+bloqueada por permisos del entorno de esta sesión, no por el código — ver
+`docs/04-calidad.md`.
 
 ---
 
