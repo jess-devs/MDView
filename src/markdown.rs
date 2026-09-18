@@ -64,6 +64,10 @@ pub enum Block {
     ThematicBreak,
     Table { header: Vec<Vec<Span>>, rows: Vec<Vec<Vec<Span>>> },
     CodeBlock(String),
+    /// A `<div align="center">` (RF-13.1, HU-03): its content, centered.
+    /// CommonMark has no equivalent construct, so this has no Markdown
+    /// counterpart — unlike every other `Block` variant.
+    Centered(Vec<Inline>),
 }
 
 /// Parses Markdown source into a list of top-level blocks. `base_dir` is the
@@ -203,16 +207,24 @@ fn parse_blocks(events: &mut Events, base_dir: Option<&Path>) -> Vec<Block> {
                         blocks.push(Block::CodeBlock(code));
                     }
                     Tag::HtmlBlock => {
-                        // Raw HTML has no element-tree representation yet
-                        // (RF-13, a later feature): consume it so its `End`
-                        // doesn't get mistaken for an enclosing caller's, and
-                        // move on without producing a block.
+                        // pulldown_cmark hands the block's content over as
+                        // raw text, one `Html` event per source line, tags
+                        // and text mixed in the same string — never split at
+                        // tag boundaries the way `InlineHtml` is (confirmed
+                        // against 0.13.4 before writing this, see AD-22).
+                        // Concatenating first and tokenizing the whole block
+                        // means a tag never accidentally lands split across
+                        // two lines.
+                        let mut raw = String::new();
                         loop {
                             match events.next() {
+                                Some(Html(t)) => raw.push_str(&t),
                                 Some(End(TagEnd::HtmlBlock)) | None => break,
                                 _ => {}
                             }
                         }
+                        let tokens = crate::html::tokenize(&raw);
+                        blocks.extend(parse_html_block_tokens(&tokens, base_dir));
                     }
                     _ => {}
                 }
@@ -314,7 +326,11 @@ fn parse_paragraph_inline(events: &mut Events, base_dir: Option<&Path>) -> Vec<I
                 let (dest, alt) = image.take().expect("End(Image) without a matching Start(Image)");
                 out.push(Inline::Image(ImageRef { resolved: resolve_image(base_dir, &dest), alt }));
             }
-            InlineHtml(raw) => apply_inline_html_tag(&raw, base_dir, &mut style, &mut link, &mut out),
+            InlineHtml(raw) => {
+                if let Some(tag) = crate::html::parse_tag(&raw) {
+                    apply_inline_html_tag(&tag, base_dir, &mut style, &mut link, &mut out);
+                }
+            }
             _ => unreachable!(),
         }
     }
@@ -322,21 +338,23 @@ fn parse_paragraph_inline(events: &mut Events, base_dir: Option<&Path>) -> Vec<I
     out
 }
 
-/// Reacts to one embedded HTML tag inside a paragraph's inline flow
-/// (RF-13.1). Only `b`/`strong`, `i`/`em`, `code`, `a`, `img` and `br` are
-/// recognized here — the ones with a place in `Inline`/`Span` already, per
-/// AD-22; anything else, open or close, is silently ignored, which is
-/// exactly what shows its text without its markup: the text between an
-/// unrecognized tag's open and close arrives as ordinary `Text` events this
-/// function never sees, untouched by whatever the tag was.
+/// Reacts to one embedded HTML tag inside a run of inline content (RF-13.1):
+/// a paragraph's flow (via `pulldown_cmark`'s `InlineHtml` events), or the
+/// content of an HTML block tag like `<p>`/`<li>`/`<div>` (via
+/// `collect_html_inline`, over tags `html::tokenize` already split out).
+/// Only `b`/`strong`, `i`/`em`, `code`, `a`, `img` and `br` are recognized
+/// here — the ones with a place in `Inline`/`Span` already, per AD-22;
+/// anything else, open or close, is silently ignored, which is exactly what
+/// shows its text without its markup: the text between an unrecognized
+/// tag's open and close arrives as ordinary text this function never sees,
+/// untouched by whatever the tag was.
 fn apply_inline_html_tag(
-    raw: &str,
+    tag: &crate::html::Tag,
     base_dir: Option<&Path>,
     style: &mut SpanStyle,
     link: &mut Option<String>,
     out: &mut Vec<Inline>,
 ) {
-    let Some(tag) = crate::html::parse_tag(raw) else { return };
     match tag.name.as_str() {
         "b" | "strong" => style.bold = !tag.closing,
         "i" | "em" => style.italic = !tag.closing,
@@ -350,6 +368,120 @@ fn apply_inline_html_tag(
         }
         _ => {}
     }
+}
+
+type HtmlTokens<'a> = std::iter::Peekable<std::slice::Iter<'a, crate::html::Token>>;
+
+/// Parses a whole HTML block's tokens (RF-13.1, HU-03: `p`, `ul`/`li`, `hr`,
+/// `div align="center"`) into `Block`s, in document order. A `pulldown_cmark`
+/// HTML block can hold several of these top-level tags in a row (any two
+/// HTML lines with no blank line between them share one block, confirmed
+/// against 0.13.4), so this loops rather than expecting exactly one.
+fn parse_html_block_tokens(tokens: &[crate::html::Token], base_dir: Option<&Path>) -> Vec<Block> {
+    let mut iter = tokens.iter().peekable();
+    let mut blocks = Vec::new();
+
+    while let Some(token) = iter.peek() {
+        match token {
+            crate::html::Token::Text(_) => {
+                iter.next(); // stray text outside any recognized tag: dropped
+            }
+            crate::html::Token::Tag(tag) if tag.closing => {
+                iter.next(); // an unmatched closing tag: nothing open to close
+            }
+            crate::html::Token::Tag(tag) => {
+                let name = tag.name.clone();
+                let centered = tag.attr("align") == Some("center");
+                iter.next();
+                match name.as_str() {
+                    "p" => {
+                        let inlines = collect_html_inline(&mut iter, base_dir, "p");
+                        if !inlines.is_empty() {
+                            blocks.push(Block::Paragraph(inlines));
+                        }
+                    }
+                    "hr" => blocks.push(Block::ThematicBreak),
+                    "ul" => {
+                        let items = parse_html_list_items(&mut iter, base_dir);
+                        consume_html_close(&mut iter, "ul");
+                        blocks.push(Block::List { ordered: false, start: 1, items });
+                    }
+                    "div" if centered => {
+                        let inlines = collect_html_inline(&mut iter, base_dir, "div");
+                        blocks.push(Block::Centered(inlines));
+                    }
+                    // Any other tag — including a `div` without centering,
+                    // which RF-13.1 doesn't ask for — shows no markup of its
+                    // own. Its content still surfaces: the loop keeps
+                    // reading the tokens that follow, own closing tag
+                    // included, exactly like an unlisted inline tag.
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    blocks
+}
+
+fn parse_html_list_items(iter: &mut HtmlTokens, base_dir: Option<&Path>) -> Vec<ListItem> {
+    let mut items = Vec::new();
+    loop {
+        match iter.peek() {
+            Some(crate::html::Token::Tag(tag)) if !tag.closing && tag.name == "li" => {
+                iter.next();
+                let inlines = collect_html_inline(iter, base_dir, "li");
+                items.push(ListItem {
+                    checked: None,
+                    children: if inlines.is_empty() { Vec::new() } else { vec![Block::Paragraph(inlines)] },
+                });
+            }
+            Some(crate::html::Token::Text(t)) if t.trim().is_empty() => {
+                iter.next(); // whitespace between </li> and the next <li>
+            }
+            _ => break,
+        }
+    }
+    items
+}
+
+fn consume_html_close(iter: &mut HtmlTokens, name: &str) {
+    if let Some(crate::html::Token::Tag(tag)) = iter.peek() {
+        if tag.closing && tag.name == name {
+            iter.next();
+        }
+    }
+}
+
+/// Reads inline content (text, and the tags `apply_inline_html_tag`
+/// recognizes) until `stop_name`'s closing tag, which it consumes, or the
+/// tokens run out. Shares `apply_inline_html_tag` with
+/// `parse_paragraph_inline`: a `<b>` inside `<p>...</p>` means the same
+/// thing as one inside a Markdown paragraph.
+fn collect_html_inline(iter: &mut HtmlTokens, base_dir: Option<&Path>, stop_name: &str) -> Vec<Inline> {
+    let mut out = Vec::new();
+    let mut style = SpanStyle::default();
+    let mut link: Option<String> = None;
+
+    while let Some(token) = iter.peek() {
+        match token {
+            crate::html::Token::Text(text) => {
+                out.push(Inline::Span(Span { text: text.clone(), style: style.clone(), url: link.clone() }));
+                iter.next();
+            }
+            crate::html::Token::Tag(tag) if tag.closing && tag.name == stop_name => {
+                iter.next();
+                break;
+            }
+            crate::html::Token::Tag(tag) => {
+                let tag = tag.clone();
+                iter.next();
+                apply_inline_html_tag(&tag, base_dir, &mut style, &mut link, &mut out);
+            }
+        }
+    }
+
+    out
 }
 
 /// The same inline grammar as `parse_paragraph_inline`, flattened to plain
@@ -700,5 +832,74 @@ mod tests {
         let spans = spans_in(first_paragraph(&blocks));
         let text: String = spans.iter().map(|s| s.text.as_str()).collect();
         assert_eq!(text, "uno dos tres");
+    }
+
+    #[test]
+    fn html_block_p_becomes_a_paragraph_with_inline_formatting() {
+        let blocks = parse("<p>Hola <b>mundo</b></p>\n", None);
+        assert_eq!(blocks.len(), 1);
+        let spans = spans_in(first_paragraph(&blocks));
+        assert_eq!(spans.iter().map(|s| s.text.as_str()).collect::<Vec<_>>(), vec!["Hola ", "mundo"]);
+        assert!(spans[1].style.bold);
+    }
+
+    #[test]
+    fn html_block_hr_becomes_a_thematic_break() {
+        let blocks = parse("texto\n\n<hr>\n\notro texto\n", None);
+        assert!(blocks.iter().any(|b| matches!(b, Block::ThematicBreak)));
+    }
+
+    #[test]
+    fn html_block_ul_li_becomes_an_unordered_list_of_two_items() {
+        let blocks = parse("<ul>\n<li>uno</li>\n<li>dos</li>\n</ul>\n", None);
+        let list = blocks
+            .iter()
+            .find_map(|b| match b {
+                Block::List { ordered, items, .. } => Some((ordered, items)),
+                _ => None,
+            })
+            .expect("falta la lista");
+        assert!(!*list.0);
+        assert_eq!(list.1.len(), 2);
+        let first_item_text: String = list.1[0]
+            .children
+            .iter()
+            .flat_map(|b| match b {
+                Block::Paragraph(inlines) => spans_in(inlines).into_iter().map(|s| s.text.clone()).collect(),
+                _ => vec![],
+            })
+            .collect();
+        assert_eq!(first_item_text, "uno");
+    }
+
+    #[test]
+    fn html_block_div_center_becomes_a_centered_block() {
+        let blocks = parse("<div align=\"center\">centrado</div>\n", None);
+        let inlines = blocks
+            .iter()
+            .find_map(|b| match b {
+                Block::Centered(inlines) => Some(inlines),
+                _ => None,
+            })
+            .expect("falta el bloque centrado");
+        assert_eq!(spans_in(inlines)[0].text, "centrado");
+    }
+
+    #[test]
+    fn several_html_block_level_tags_in_a_row_all_produce_their_own_block() {
+        // pulldown-cmark groups consecutive HTML lines (no blank line
+        // between them) into a single Tag::HtmlBlock — confirmed before
+        // writing parse_html_block_tokens, not assumed.
+        let source = "<p>uno</p>\n<hr>\n<p>dos</p>\n";
+        let blocks = parse(source, None);
+        let shapes: Vec<&str> = blocks
+            .iter()
+            .map(|b| match b {
+                Block::Paragraph(_) => "p",
+                Block::ThematicBreak => "hr",
+                _ => "?",
+            })
+            .collect();
+        assert_eq!(shapes, vec!["p", "hr", "p"]);
     }
 }

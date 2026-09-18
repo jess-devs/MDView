@@ -169,6 +169,7 @@ fn render_block(
             render_list(*ordered, *start, items, code_index, text_index, window, cx).into_any_element()
         }
         Block::Table { header, rows } => render_table(header, rows, text_index, cx).into_any_element(),
+        Block::Centered(inlines) => render_centered(inlines, text_index, cx),
         Block::CodeBlock(text) => {
             // Each code block needs its own horizontal ScrollHandle: the
             // convenience `overflow_x_scrollbar()` derives its state key from
@@ -365,6 +366,50 @@ fn render_text_block(spans: &[Span], text_index: &mut usize, cx: &App) -> AnyEle
         .text_size(px(BODY_SIZE))
         .child(render_text(spans, false, ("text-block", id), cx))
         .into_any_element()
+}
+
+/// Renders a `<div align="center">` (RF-13.1, HU-03): the same span/image
+/// splitting as `render_paragraph`, but each text run gets `.text_center()`
+/// instead of `.w_full()`, and an image sits in a row centered on the cross
+/// axis — `render_paragraph`'s text blocks are already `w_full()`, which
+/// leaves nothing for centering to do.
+fn render_centered(inlines: &[Inline], text_index: &mut usize, cx: &App) -> AnyElement {
+    let mut column = div().v_flex().gap_2().w_full().items_center();
+    let mut run: Vec<Span> = Vec::new();
+
+    let flush = |run: &mut Vec<Span>, text_index: &mut usize, cx: &App| -> Option<AnyElement> {
+        if run.is_empty() {
+            return None;
+        }
+        let id = *text_index;
+        *text_index += 1;
+        let element = div()
+            .w_full()
+            .text_center()
+            .whitespace_normal()
+            .text_size(px(BODY_SIZE))
+            .child(render_text(run, false, ("text-block", id), cx))
+            .into_any_element();
+        run.clear();
+        Some(element)
+    };
+
+    for inline in inlines {
+        match inline {
+            Inline::Span(span) => run.push(span.clone()),
+            Inline::Image(image) => {
+                if let Some(element) = flush(&mut run, text_index, cx) {
+                    column = column.child(element);
+                }
+                column = column.child(render_image(image));
+            }
+        }
+    }
+    if let Some(element) = flush(&mut run, text_index, cx) {
+        column = column.child(element);
+    }
+
+    column.into_any_element()
 }
 
 /// Renders an image (RF-11.1), or its alt text if it can't be shown:

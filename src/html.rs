@@ -11,6 +11,7 @@
 /// One HTML start or end tag, e.g. `<a href="https://x.dev">` or `</a>`.
 /// Attribute values are unescaped as written: RF-13.1 doesn't ask for HTML
 /// entity decoding, and no test document needs it.
+#[derive(Clone)]
 pub struct Tag {
     /// Lowercased, without the enclosing `<`/`>`, `/`, or attributes.
     pub name: String,
@@ -115,6 +116,57 @@ fn parse_attrs(s: &str) -> Vec<(String, String)> {
     attrs
 }
 
+/// One piece of block-level HTML content, in document order: either a tag
+/// or a run of plain text between tags. `markdown` uses this for the
+/// content of `Tag::HtmlBlock` (RF-13.1's `p`, `ul`/`li`, `table`, `details`,
+/// `div`), which `pulldown_cmark` hands over as raw multi-line text — unlike
+/// inline HTML, never split at tag boundaries (confirmed against
+/// `pulldown-cmark` 0.13.4 before writing this: a `<p>text <b>b</b></p>`
+/// block arrives as a single `Event::Html` per source line, tags and text
+/// mixed in the same string), so it needs its own tokenizing pass.
+pub enum Token {
+    Tag(Tag),
+    Text(String),
+}
+
+/// Splits raw block-level HTML text into a flat sequence of tags and text
+/// runs. A malformed tag —missing `>`, or the sort `parse_tag` already
+/// rejects— degrades to being skipped rather than breaking the scan: the
+/// text around it still comes through.
+pub fn tokenize(raw: &str) -> Vec<Token> {
+    let mut tokens = Vec::new();
+    let mut rest = raw;
+
+    while !rest.is_empty() {
+        match rest.find('<') {
+            None => {
+                tokens.push(Token::Text(rest.to_string()));
+                break;
+            }
+            Some(0) => match rest.find('>') {
+                Some(end) => {
+                    if let Some(tag) = parse_tag(&rest[..=end]) {
+                        tokens.push(Token::Tag(tag));
+                    }
+                    rest = &rest[end + 1..];
+                }
+                None => {
+                    // An unterminated '<': the rest of the text has no more
+                    // tags to find, so it's all plain text from here on.
+                    tokens.push(Token::Text(rest.to_string()));
+                    break;
+                }
+            },
+            Some(lt) => {
+                tokens.push(Token::Text(rest[..lt].to_string()));
+                rest = &rest[lt..];
+            }
+        }
+    }
+
+    tokens
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -155,5 +207,21 @@ mod tests {
     #[test]
     fn a_comment_is_not_a_tag() {
         assert!(parse_tag("<!-- nota -->").is_none());
+    }
+
+    #[test]
+    fn tokenize_splits_mixed_tags_and_text_on_one_line() {
+        let tokens = tokenize("<p>Hola <b>mundo</b></p>");
+        let shapes: Vec<String> = tokens
+            .iter()
+            .map(|t| match t {
+                Token::Tag(tag) => format!("tag:{}{}", if tag.closing { "/" } else { "" }, tag.name),
+                Token::Text(text) => format!("text:{text}"),
+            })
+            .collect();
+        assert_eq!(
+            shapes,
+            vec!["tag:p", "text:Hola ", "tag:b", "text:mundo", "tag:/b", "tag:/p"]
+        );
     }
 }

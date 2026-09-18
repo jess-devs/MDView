@@ -142,3 +142,54 @@ para las etiquetas no listadas, no un caso aparte que haya que programar.
   del intérprete de bloques que construyen HU-03 a HU-05, no de este.
 
 Estado: activa
+
+---
+
+## AD-23 — Bloques de HTML: tokenizar la cadena entera, y `Block::Centered` sin equivalente Markdown
+
+Fecha: 2026-09-18
+
+**Contexto.** HU-03 necesitaba interpretar `p`, `ul`/`li`, `hr` y
+`div align="center"` cuando aparecen como bloque HTML, no en línea. Antes
+de escribir código se comprobó con un test desechable cómo entrega
+`pulldown-cmark` 0.13.4 ese contenido: **una cadena por línea de código
+fuente** (`Event::Html`), con etiquetas y texto mezclados dentro —a
+diferencia de `Event::InlineHtml` en HU-02, que llega una etiqueta por
+evento, con el texto ya separado en eventos `Text` propios. `html::parse_tag`
+de AD-22, pensado para una etiqueta ya aislada, no alcanza aquí.
+
+**Decisión.** `html::tokenize(raw: &str) -> Vec<Token>` recorre la cadena
+completa del bloque —las líneas ya concatenadas por
+`markdown::parse_blocks`— buscando `<`/`>` a mano, y separa el resultado en
+`Token::Tag`/`Token::Text`. `markdown::parse_html_block_tokens` recorre esa
+lista con la misma forma recursiva que ya usan `parse_blocks`/
+`parse_list_items` para Markdown —un bucle sobre un iterador `Peekable`,
+una función por nivel de anidamiento (`parse_html_list_items` para
+`<li>`, `collect_html_inline` para el contenido en línea de `<p>`/`<li>`/
+`<div>`)—, en vez de construir un árbol DOM genérico: la misma razón que
+AD-22, aplicada un nivel más abajo.
+
+`div align="center"` no tiene equivalente en CommonMark, así que gana
+`Block::Centered(Vec<Inline>)`: el primer `Block` de este proyecto sin
+contrapartida Markdown. `render::render_centered` es casi
+`render_paragraph` con `.text_center()` en vez de `.w_full()` en cada
+bloque de texto.
+
+**Consecuencias.**
+
+- `collect_html_inline` no distingue una etiqueta de cierre mal anidada
+  (`</ul>` dentro de un `<p>`, por ejemplo) de una que no reconoce: la
+  pasa a `apply_inline_html_tag`, que no hace nada con ella, y sigue
+  leyendo. No hay ningún documento de prueba que dependa de detectarlo, así
+  que no se añadió comprobación: la única garantía que se sostiene es que
+  nunca cuelga ni entra en bucle, porque la lista de tokens es finita.
+- Un `<div>` sin `align="center"` no produce ningún `Block`: su texto se
+  descarta en vez de mostrarse como el de una etiqueta no listada normal.
+  Es una laguna conocida, no una decisión deliberada — `parse_html_block_tokens`
+  trata cualquier etiqueta de nivel superior no reconocida igual (sin
+  bloque propio), y un `div` sin centrar cae en esa rama junto con
+  cualquier otra etiqueta fuera de RF-13.1. Ningún criterio de HU-03 lo
+  cubre; si hiciera falta, la etiqueta que faltaría reconocer es
+  exactamente esta.
+
+Estado: activa

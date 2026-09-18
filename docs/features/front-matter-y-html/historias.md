@@ -108,7 +108,8 @@ cada una de las cinco etiquetas, y un encabezado antes y después.
 5. CA-03.5 — El encabezado anterior y el posterior a estos bloques se siguen
    mostrando: ningún bloque HTML trunca el documento.
 
-**Estado.** pendiente
+**Estado.** verificada. Los cinco criterios pasan por observación; el
+detalle está en `docs/04-calidad.md`.
 
 ---
 

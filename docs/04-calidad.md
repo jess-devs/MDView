@@ -759,3 +759,52 @@ para que quien la lea después sepa que CA-02.4 se retomó, no que se ignoró.
 **Estado de la historia:** en curso. Seis de los siete criterios pasan por
 observación directa; CA-02.4 queda con la apertura del navegador bloqueada
 por el entorno, a la espera de repetir el clic.
+
+---
+
+## HU-03 (front-matter-y-html) — Ver bloques de HTML incrustado con el formato equivalente
+
+Verificado el 2026-09-18, en la misma máquina de desarrollo. `cargo test`
+(27 casos: los 21 anteriores más 6 propios de esta historia) en verde.
+Compilado `target\debug\mdview.exe`.
+
+Documento de prueba: `pruebas/hu-03-bloques-html/documento.md`, con las
+cinco etiquetas (`<p>`, `<ul>`/`<li>` de dos elementos, `<hr>`,
+`<div align="center">`) entre un encabezado «Antes» y uno «Despues».
+
+| Criterio | Resultado | Evidencia |
+| --- | --- | --- |
+| CA-03.1 — `<p>` como párrafo | pasa | Captura: «Un parrafo escrito en HTML.» se ve como cualquier otro párrafo del documento. |
+| CA-03.2 — `<ul>`/`<li>` como lista no ordenada de dos elementos | pasa | Misma captura: «Elemento uno» y «Elemento dos», cada uno con su marcador `•`. |
+| CA-03.3 — `<hr>` como regla horizontal | pasa | Misma captura: línea fina que recorre el ancho de la columna, bajo la lista. |
+| CA-03.4 — `<div align="center">` con su contenido centrado | pasa | Misma captura: «Texto centrado en HTML» centrado horizontalmente en la columna, a diferencia del resto del texto, alineado a la izquierda. |
+| CA-03.5 — El contenido antes y después se sigue mostrando | pasa | Misma captura: «Antes» y «Despues» visibles, ninguno de los cinco bloques HTML trunca el documento. |
+
+**Prueba de regresión.** `cargo test`: 27/27 en verde, incluyendo los 21
+casos previos.
+
+**Nota de proceso — cómo se investigó antes de escribir código.** Antes de
+diseñar `parse_html_block_tokens`, se sondeó con un test desechable cómo
+entrega `pulldown-cmark` 0.13.4 el contenido de un `Tag::HtmlBlock`:
+`<p>Hola <b>mundo</b></p>` llega como **una sola cadena por línea de
+código fuente** (`Event::Html`), etiquetas y texto mezclados, a diferencia
+del HTML en línea de HU-02, que llega una etiqueta por evento. De ahí que
+`html::tokenize` —nuevo, en el mismo módulo que `parse_tag`— haga falta:
+recorre esa cadena buscando `<`/`>` y separa texto de etiquetas a mano.
+También se confirmó que varias líneas HTML seguidas sin línea en blanco
+entre ellas comparten un único `Tag::HtmlBlock` —de ahí que
+`parse_html_block_tokens` recorra en bucle, sin asumir una etiqueta de
+nivel superior por bloque (cubierto por
+`several_html_block_level_tags_in_a_row_all_produce_their_own_block`).
+
+**Nota de proceso — nuevo `Block::Centered`.** `<div align="center">` no
+tiene equivalente en CommonMark —es el primer `Block` de este proyecto sin
+contrapartida Markdown—, así que RF-13.1 no puede pedir «el mismo formato
+que su equivalente»: aquí se decidió que equivale a centrar su contenido
+horizontalmente. `render::render_centered` reutiliza la misma separación de
+texto/imagen que `render_paragraph`, con `.text_center()` en vez de
+`.w_full()` en cada bloque de texto —`w_full()` no deja nada que centrar,
+ocupa toda la columna igual—.
+
+**Estado de la historia:** verificada. Los cinco criterios pasan por
+observación directa.

@@ -83,3 +83,4 @@ que le faltan entradas es peor que no tener índice.
 | AD-20 | Cómo se muestran las imágenes: `gpui::img()`, tipo `Inline` propio, resolución en `markdown::parse` | `features/enlaces-e-imagenes/decisiones.md` | activa |
 | AD-21 | Front matter: extracción propia sobre el texto crudo, no `ENABLE_YAML_STYLE_METADATA_BLOCKS` | `features/front-matter-y-html/decisiones.md` | activa |
 | AD-22 | Intérprete de HTML incrustado: módulo `html` propio, una etiqueta por evento | `features/front-matter-y-html/decisiones.md` | activa |
+| AD-23 | Bloques de HTML: tokenizar la cadena entera, y `Block::Centered` sin equivalente Markdown | `features/front-matter-y-html/decisiones.md` | activa |
