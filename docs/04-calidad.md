@@ -1134,3 +1134,45 @@ observación directa.
 Con esta historia, las tres de `integracion-con-windows` quedan
 verificadas: la última feature del proyecto por ahora, a falta de RF-02
 cuando exista la feature de distribución.
+
+---
+
+## HU-01 (distribucion) — Instalar MDView deja `.md` disponible en el Explorador y `mdview` disponible en la terminal
+
+Verificado el 2026-09-18. Instalador compilado con Inno Setup 6.7.3
+(`packaging/mdview.iss`), ejecutado en una cuenta sin privilegios de
+administrador. Sin tests nuevos, mismo criterio que AD-17/AD-19/AD-28:
+E/S real del sistema operativo, no simulada.
+
+**Método.** Todas las comprobaciones que implican al Explorador de
+Windows o al PATH se hicieron lanzando el instalador desde una sesión de
+escritorio real (doble clic en el Explorador, o en un caso el propio
+usuario), nunca desde un script. Se descubrió durante esta historia que
+las herramientas de shell de este entorno de trabajo corren en un
+entorno aislado con su propia vista del registro de Windows: un
+instalador lanzado desde ahí escribe un HKCU que la sesión de escritorio
+real nunca ve. Todas las evidencias de abajo son de la sesión real.
+
+| Criterio | Resultado | Evidencia |
+| --- | --- | --- |
+| CA-01.1 — Sin UAC, sin elevación | pasa | El instalador, lanzado con doble clic, mostró directamente su asistente sin ningún diálogo de UAC; confirmado además porque la ventana del instalador se pudo controlar sin restricción (un proceso elevado no lo permite). |
+| CA-01.2 — `mdview.exe` en la carpeta de instalación | pasa | `Test-Path` sobre `%LOCALAPPDATA%\Programs\MDView\mdview.exe` tras instalar. |
+| CA-01.3 — Aparece en «Abrir con» | pasa | Captura del usuario: menú «Open with» de un `.md` mostrando «mdview.exe» junto a Claude y Zed. |
+| CA-01.4 — Elegirlo abre el documento | pasa | Captura: MDView mostrando «distribucion-doc.md» con su contenido, tras elegirlo en «Abrir con». |
+| CA-01.5 — No se vuelve predeterminada por sí sola | pasa | Tras usarlo una vez desde «Abrir con», `HKCU\...\FileExts\.md\UserChoice` seguía sin existir: ningún mecanismo, ni el instalador ni ese primer uso, escribió una preferencia. |
+| CA-01.6 — `mdview` funciona en una terminal nueva | pasa | Captura del usuario: PowerShell recién abierto, `mdview "$env:USERPROFILE\Downloads\distribucion-doc.md"` abrió el documento. Un primer intento con `%USERPROFILE%` (sintaxis de `cmd`, no de PowerShell) ya demostró que `mdview` se resolvía por PATH: el error fue de ruta, no de «no se reconoce como comando». |
+
+**Nota de proceso — un defecto real encontrado por observación.** La
+primera versión de `mdview.iss` registraba la entrada de
+`OpenWithProgids` con `ValueType: none`, que en Inno Setup solo garantiza
+que la *clave* exista y ignora el `ValueName`/`ValueData` — nunca escribe
+el valor `MDView.md` que el Explorador necesita para listarlo. El
+instalador terminaba sin error y el log de Inno decía «Successfully
+created the key», pero CA-01.3 fallaba: nada apareció en «Abrir con».
+Se corrigió a `ValueType: string` con `ValueData: ""` (cadena vacía),
+que es como los registran los instaladores reales. Encontrado
+exactamente por la regla del proyecto: un criterio se verifica por
+observación, nunca se da por bueno porque el instalador «terminó bien».
+
+**Estado de la historia:** verificada. Los seis criterios pasan por
+observación directa, en una sesión de escritorio real.

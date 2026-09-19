@@ -38,7 +38,8 @@ resultado.
    y ejecutar `mdview ruta\a\un\archivo.md` abre ese documento, sin escribir
    la ruta del ejecutable.
 
-**Estado.** pendiente.
+**Estado.** verificada. Los seis criterios pasan por observación; el detalle
+está en `docs/04-calidad.md`.
 
 ---
 
