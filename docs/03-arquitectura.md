@@ -91,3 +91,4 @@ que le faltan entradas es peor que no tener índice.
 | AD-28 | Instancia única: Mutex de `windows` para detectar, archivo sondeado para transportar | `features/integracion-con-windows/decisiones.md` | activa |
 | AD-29 | Empaquetado: Inno Setup con registro en `HKCU`, sin forzar la aplicación predeterminada | `features/distribucion/decisiones.md` | activa |
 | AD-30 | Ver el crudo: campo `raw` en `DocumentTab`, reutilizando el desplazamiento horizontal de los bloques de código | `features/ver-markdown-en-crudo/decisiones.md` | activa |
+| AD-31 | Editar es editar el crudo con `gpui_component::input`; `ViewMode` reemplaza a `raw_view`; RF-07 se revisa con un diálogo | `features/edicion-con-confirmacion/decisiones.md` | activa |
