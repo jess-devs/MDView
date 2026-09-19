@@ -186,6 +186,31 @@ copiar y ejecutar desde cualquier carpeta, incluida una memoria USB.
 Origen: propuesto por el usuario el 2026-08-20 junto con RF-21; confirmado
 como requisito propio al abrir la feature `distribucion` el 2026-09-18.
 
+### RF-23 — Ver el Markdown en crudo
+
+El sistema debe permitir alternar, por documento, entre verlo renderizado y
+verlo como el texto tal cual está escrito en el archivo `.md`, sin
+interpretar. Volver a activar el modo renderizado debe mostrar el documento
+exactamente como antes de alternar.
+Origen: propuesto por el usuario el 2026-08-20, aplazado explícitamente a una
+versión posterior (`01-alcance.md`); confirmado como requisito propio al
+abrir la feature `ver-markdown-en-crudo` el 2026-09-18.
+
+### RF-24 — Edición con confirmación explícita
+
+El sistema debe permitir modificar el contenido de un documento, pero solo
+después de que el usuario habilite la edición de forma deliberada; por
+defecto, un documento abierto es de solo lectura. El alcance exacto de qué
+significa "editar" en la primera entrega de esta función se acota en
+`features/edicion-con-confirmacion/requisitos.md`, no aquí: `01-alcance.md`
+ya advertía que un editor completo (cursor, selección, deshacer/rehacer,
+archivo cambiado en disco) es un esfuerzo comparable al de todo el resto del
+proyecto, así que este requisito de sistema se refina, no se implementa de
+una sola vez.
+Origen: propuesto por el usuario el 2026-08-20, aplazado explícitamente a una
+versión posterior (`01-alcance.md`); confirmado como requisito propio al
+abrir la feature `edicion-con-confirmacion` el 2026-09-18.
+
 ## No funcionales
 
 ### RNF-01 — Tiempo hasta el documento visible

@@ -4,8 +4,8 @@ Visor de archivos Markdown para escritorio, escrito en Rust con GPUI. Abre
 documentos `.md` renderizados en pestañas, con el objetivo de sustituir la
 costumbre de abrir un IDE solo para leer un archivo de texto.
 
-Estado: seis features cerradas (veintisiete historias verificadas). Ver
-la tabla de abajo.
+Estado: seis features cerradas (veintisiete historias verificadas), una
+séptima en curso. Ver la tabla de abajo.
 
 ## Documentación
 
@@ -24,18 +24,23 @@ tocar código.
 | `docs/features/front-matter-y-html/` | Ídem de la tercera: front matter como tabla de propiedades y un subconjunto de HTML incrustado. |
 | `docs/features/varios-documentos-en-pestanas/` | Ídem de la cuarta: varios documentos abiertos a la vez, en pestañas, y navegación entre ellos (RF-14). |
 | `docs/features/integracion-con-windows/` | Ídem de la quinta: asociación de `.md`, doble clic e instancia única (solo RF-03.1; RF-02 se aplazó a la sexta). |
-| `docs/features/distribucion/` | Ídem de la sexta y última: instalador, integración en el PATH y versión portable (RF-02.1, RF-21.1, RF-22.1). |
+| `docs/features/distribucion/` | Ídem de la sexta: instalador, integración en el PATH y versión portable (RF-02.1, RF-21.1, RF-22.1). |
+| `docs/features/ver-markdown-en-crudo/` | Ídem de la séptima, en curso: alternar entre documento renderizado y texto en crudo (RF-23). |
 
-Estado: las seis features cerradas — `ver-un-documento`,
-`enlaces-e-imagenes`, `front-matter-y-html`, `varios-documentos-en-pestanas`,
-`integracion-con-windows` y `distribucion`. Con `distribucion` cerrada, RF-02
-(pendiente desde `varios-documentos-en-pestanas`) queda cubierto y el
-proyecto no tiene más features planificadas.
+Estado: seis features cerradas — `ver-un-documento`, `enlaces-e-imagenes`,
+`front-matter-y-html`, `varios-documentos-en-pestanas`,
+`integracion-con-windows` y `distribucion` (esta última cerró RF-02,
+pendiente desde `varios-documentos-en-pestanas`). `ver-markdown-en-crudo`
+abierta el 2026-09-18, retomando una función que `01-alcance.md` había
+aplazado explícitamente. Dos más planeadas después, una por una (límite
+de trabajo en curso): `edicion-con-confirmacion` (RF-24) y
+`multiplataforma`, esta última bloqueada en su verificación hasta que
+exista una máquina Linux o Mac.
 
-El trabajo estaba dividido en seis features, todas cerradas ya. El orden
-y el reparto de requisitos entre ellas está en
-`docs/features/enlaces-e-imagenes/plan.md` (las cinco primeras) y en
-`docs/features/distribucion/requisitos.md` (la sexta).
+El trabajo de las primeras seis features estaba dividido según
+`docs/features/enlaces-e-imagenes/plan.md` (las cinco primeras) y
+`docs/features/distribucion/requisitos.md` (la sexta). Las features
+siguientes no comparten un plan: cada una es su propia unidad de trabajo.
 
 ## Reglas
 
