@@ -3,16 +3,17 @@
 
 use std::{
     env,
-    ffi::OsStr,
     fs::OpenOptions,
     io::Write,
-    os::windows::ffi::OsStrExt,
     path::{Path, PathBuf},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use gpui::{App, Application, AppContext, Entity, WindowOptions};
 use gpui_component::{Root, Theme};
+#[cfg(windows)]
+use std::{ffi::OsStr, os::windows::ffi::OsStrExt};
+#[cfg(windows)]
 use windows::{
     core::PCWSTR,
     Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS},
@@ -192,12 +193,22 @@ pub fn run(start: SystemTime) {
 /// has no `Drop` impl (confirmed reading its definition, not assumed), so
 /// letting the `Result` fall out of scope already leaves it open; nothing
 /// further to do.
+#[cfg(windows)]
 fn is_another_instance_running() -> bool {
     let name: Vec<u16> = OsStr::new("MDView-Instancia-Unica").encode_wide().chain(std::iter::once(0)).collect();
     unsafe {
         let _ = CreateMutexW(None, false, PCWSTR(name.as_ptr()));
         GetLastError() == ERROR_ALREADY_EXISTS
     }
+}
+
+/// RF-03.1's single-instance behaviour is Windows-only for now (AD-28's
+/// Mutex mechanism is Win32-specific); the `multiplataforma` feature still
+/// has to design a Linux equivalent. Until then, a Linux build always acts
+/// as the first instance — an explicit, documented gap, not a silent one.
+#[cfg(not(windows))]
+fn is_another_instance_running() -> bool {
+    false
 }
 
 fn instance_request_path() -> PathBuf {

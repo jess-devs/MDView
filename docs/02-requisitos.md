@@ -245,6 +245,16 @@ entorno de trabajo es Windows 11. En Fase 3 se le preguntó expresamente si deb�
 soportarse también Windows 10 y respondió que no, entre otras razones porque
 Microsoft dejó de darle soporte en octubre de 2025. Windows 10 queda fuera.
 
+### RNF-04 — Compilación en Linux
+
+El sistema debe compilar sin errores en Linux (x86_64), además de en Windows.
+Este requisito cubre solo que el código compile — no que su comportamiento en
+pantalla esté verificado, que exige una máquina Linux real y queda pendiente
+mientras no exista una (ver `01-alcance.md`).
+Origen: `01-alcance.md` excluía Linux y macOS de la primera versión; el
+usuario pidió reconsiderarlo en parte el 2026-09-18, solo para Linux, al abrir
+la feature `multiplataforma`.
+
 ## Requisitos que deliberadamente no existen
 
 Esta sección está aquí para que nadie los añada más adelante creyendo que se

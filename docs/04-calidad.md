@@ -1368,3 +1368,27 @@ observación directa.
 Con esta historia, las cuatro de `edicion-con-confirmacion` quedan
 verificadas: RF-24 queda cubierto, en el alcance que `requisitos.md`
 acotó desde el principio (editar el crudo, no el árbol renderizado).
+
+---
+
+## HU-01 (multiplataforma) — El código compila en Linux
+
+Intentado el 2026-09-18, en una VM WSL2 con Ubuntu 26.04 (instalada
+durante esta misma feature; no existía antes). No es la máquina Linux
+real que este proyecto exige para dar un criterio por `pasa` — ver la
+decisión de alcance en `requisitos.md` de esta feature.
+
+| Criterio | Resultado | Evidencia |
+| --- | --- | --- |
+| CA-01.1 — `cargo build` sin errores en Linux | pasa | `cargo build` terminó en verde tras mover `windows` a `[target.'cfg(windows)'.dependencies]` (AD-32); antes fallaba compilando `windows-future` con símbolos que no existen fuera de Windows. |
+| CA-01.2 — `cargo test` igual que en Windows | pasa | 31/31 en verde, mismas pruebas que en Windows (son de lógica pura, AD-17). |
+| CA-01.3 — Se ejecuta y se ve en una pantalla Linux real | **bloqueado** | No hay máquina Linux real en este entorno. Se intentó en la VM de WSLg: con el backend Wayland de `gpui`, panic inmediato (`UnsupportedVersion` al negociar `wl_compositor` contra el Weston de WSLg); forzando el backend X11 (quitando `WAYLAND_DISPLAY`), el proceso arrancó sin *panic*, pero la ventana que WSLg proyectó hacia Windows quedó marcada «`[WARN:COPY MODE]`» — un aviso del propio WSLg de renderizado degradado — y no se pudo confirmar que el contenido se viera correctamente. Ninguno de los dos resultados cuenta como observación válida de este criterio. |
+
+**Nota de proceso.** El defecto de CA-01.1 (dependencia `windows` sin
+`target.cfg`) es del tipo que esta feature existe para encontrar:
+nadie lo había notado en varias features porque nadie había compilado
+el proyecto fuera de Windows desde que AD-28 añadió esa dependencia.
+
+**Estado de la historia:** parcialmente verificada. CA-01.1 y CA-01.2
+pasan; CA-01.3 queda `bloqueado` hasta que exista una máquina Linux
+real — no hay más que investigar en este entorno.

@@ -92,3 +92,4 @@ que le faltan entradas es peor que no tener índice.
 | AD-29 | Empaquetado: Inno Setup con registro en `HKCU`, sin forzar la aplicación predeterminada | `features/distribucion/decisiones.md` | activa |
 | AD-30 | Ver el crudo: campo `raw` en `DocumentTab`, reutilizando el desplazamiento horizontal de los bloques de código | `features/ver-markdown-en-crudo/decisiones.md` | activa |
 | AD-31 | Editar es editar el crudo con `gpui_component::input`; `ViewMode` reemplaza a `raw_view`; RF-07 se revisa con un diálogo | `features/edicion-con-confirmacion/decisiones.md` | activa |
+| AD-32 | La dependencia `windows` se limita a `cfg(windows)`, con un hueco explícito para RF-03.1 en Linux | `features/multiplataforma/decisiones.md` | activa |

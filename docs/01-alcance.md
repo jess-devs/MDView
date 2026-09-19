@@ -105,7 +105,7 @@ Todo lo siguiente se consideró y se excluyó a propósito.
 | Varias ventanas simultáneas | La decisión de instancia única implica una sola ventana. Reordenar pestañas arrastrándolas o moverlas entre ventanas queda fuera por lo mismo. |
 | Recordar las pestañas abiertas entre ejecuciones | Añade estado persistente. Una aplicación que arranca en menos de un segundo no lo necesita para ser útil. |
 | Temas personalizables por el usuario | Un visor tiene que verse bien por defecto, no ser configurable. Seguir el tema de Windows sí entra; ofrecer ajustes de color, no. |
-| Linux y macOS | Son el objetivo declarado del proyecto, pero no de esta versión. macOS además no se puede verificar sin una máquina Apple, según se recoge en `00-contexto.md`. |
+| Linux y macOS | Son el objetivo declarado del proyecto, pero no de esta versión. macOS además no se puede verificar sin una máquina Apple, según se recoge en `00-contexto.md`. **Reconsiderado en parte el 2026-09-18:** el usuario pidió empezar a preparar Linux (no macOS, que sigue sin máquina para verificarlo ni siquiera para compilarlo cruzado). Ver la feature `multiplataforma`: cubre que el código compile en Linux, no que el resultado esté verificado en una máquina Linux real — lo único que había hasta entonces era una VM de WSL con WSLg, y ese entorno no cuenta como la máquina real que este mismo documento exige para verificar por observación. |
 
 ## Aplazado a versiones posteriores
 
