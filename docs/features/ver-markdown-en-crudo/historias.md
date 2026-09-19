@@ -37,7 +37,8 @@ ventana.
    cambiar a la otra la muestra renderizada: el modo es de cada pestaña,
    no global.
 
-**Estado.** pendiente.
+**Estado.** verificada. Los seis criterios pasan por observación; el
+detalle está en `docs/04-calidad.md`.
 
 ---
 

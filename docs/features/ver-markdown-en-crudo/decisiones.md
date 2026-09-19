@@ -1,6 +1,6 @@
 # Decisiones — ver-markdown-en-crudo
 
-> Estado: borrador
+> Estado: cerrada, su única historia verificada
 > Última actualización: 2026-09-18
 > Modo: new-feature
 

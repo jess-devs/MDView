@@ -86,17 +86,28 @@ impl Render for DocumentView {
         if self.state.no_path_given {
             column = column.child(render_empty_state(cx));
         } else if let Some(tab) = self.state.tabs.get(self.state.active_tab) {
-            let link_ctx = LinkCtx { doc_dir: tab.path.parent().map(Path::to_path_buf), view: cx.entity() };
-            let mut code_index = 0;
-            let mut text_index = 0;
-            for block in &tab.blocks {
-                column = column.child(render_block(block, &mut code_index, &mut text_index, &link_ctx, window, cx));
+            if tab.raw_view {
+                column = column.child(render_raw(&tab.raw, self.state.active_tab, window, cx));
+            } else {
+                let link_ctx = LinkCtx { doc_dir: tab.path.parent().map(Path::to_path_buf), view: cx.entity() };
+                let mut code_index = 0;
+                let mut text_index = 0;
+                for block in &tab.blocks {
+                    column = column.child(render_block(block, &mut code_index, &mut text_index, &link_ctx, window, cx));
+                }
             }
         }
 
         let mut root = div().relative().size_full().v_flex();
-        if !self.state.tabs.is_empty() {
-            root = root.child(render_tab_bar(&self.state.tabs, self.state.active_tab, cx.entity()));
+        if let Some(tab) = self.state.tabs.get(self.state.active_tab) {
+            root = root.child(
+                div()
+                    .flex()
+                    .items_center()
+                    .w_full()
+                    .child(div().flex_1().child(render_tab_bar(&self.state.tabs, self.state.active_tab, cx.entity())))
+                    .child(render_view_toggle(tab.raw_view, cx.entity())),
+            );
         }
         // `Root` does not render notifications/dialogs/sheets on its own;
         // the top-level view is expected to composite them in. Without this,
@@ -162,6 +173,60 @@ fn render_close_tab_button(ix: usize, view: Entity<DocumentView>) -> impl IntoEl
             }
         });
     })
+}
+
+/// The RF-23.1 toggle between rendered and raw view, next to the tab bar
+/// (AD-30) rather than inside each `Tab`: it acts on the active tab, not on
+/// how a tab looks in the strip.
+fn render_view_toggle(raw_view: bool, view: Entity<DocumentView>) -> impl IntoElement {
+    let label = if raw_view { "Ver renderizado" } else { "Ver crudo" };
+    Button::new("toggle-raw-view").label(label).ghost().xsmall().on_click(move |_event, _window, cx| {
+        view.update(cx, |view, cx| {
+            if let Some(tab) = view.state.tabs.get_mut(view.state.active_tab) {
+                tab.raw_view = !tab.raw_view;
+            }
+            cx.notify();
+        });
+    })
+}
+
+/// Renders a document's exact text (RF-23.1, RF-23.2): the same
+/// monospaced/horizontal-scroll treatment as `Block::CodeBlock` (AD-10),
+/// applied to the whole file instead of one block, since RF-23.2 reuses
+/// RF-10's rule verbatim — a wide line stays whole and scrolls, not wrapped.
+/// Keyed by `tab_ix` so each tab keeps its own scroll position, the same
+/// reasoning `render_block`'s `code_index` already uses.
+fn render_raw(raw: &str, tab_ix: usize, window: &mut Window, cx: &mut App) -> AnyElement {
+    let handle = window
+        .use_keyed_state(("raw-view-scroll", tab_ix), cx, |_, _| ScrollHandle::default())
+        .read(cx)
+        .clone();
+
+    div()
+        .id(("raw-view", tab_ix))
+        .w_full()
+        .relative()
+        .bg(cx.theme().muted)
+        .child(
+            div()
+                .id(("raw-view-scroll-area", tab_ix))
+                .flex()
+                .flex_row()
+                .w_full()
+                .overflow_x_scroll()
+                .track_scroll(&handle)
+                .p_2()
+                .child(
+                    div()
+                        .flex_1()
+                        .whitespace_nowrap()
+                        .font_family(cx.theme().mono_font_family.clone())
+                        .text_size(px(BODY_SIZE))
+                        .child(raw.to_string()),
+                ),
+        )
+        .scrollbar(&handle, ScrollbarAxis::Horizontal)
+        .into_any_element()
 }
 
 /// The window shown when MDView is launched without a file (RF-19).

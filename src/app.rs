@@ -33,6 +33,13 @@ pub enum Mode {
 pub struct DocumentTab {
     pub path: PathBuf,
     pub blocks: Vec<markdown::Block>,
+    /// The file's exact text, kept alongside `blocks` for RF-23.1: showing
+    /// it raw doesn't re-read the file or re-run `markdown::parse`, so it
+    /// can never drift from what was actually loaded (AD-30).
+    pub raw: String,
+    /// Whether this tab currently shows `raw` instead of `blocks` (RF-23.1).
+    /// Per-tab, not global: switching tabs must not change another tab's mode.
+    pub raw_view: bool,
 }
 
 pub struct AppState {
@@ -96,7 +103,7 @@ pub fn run(start: SystemTime) {
                     }
                     let base_dir = canonical.parent();
                     let blocks = markdown::parse(&text, base_dir);
-                    tabs.push(DocumentTab { path: canonical, blocks });
+                    tabs.push(DocumentTab { path: canonical, blocks, raw: text, raw_view: false });
                 }
                 Err(error) => errors.push(error_message(path, error)),
             }
@@ -293,7 +300,7 @@ fn open_or_activate_tab(state: &mut AppState, target: &Path) {
         Ok(text) => {
             let base_dir = canonical.parent();
             let blocks = markdown::parse(&text, base_dir);
-            state.tabs.push(DocumentTab { path: canonical, blocks });
+            state.tabs.push(DocumentTab { path: canonical, blocks, raw: text, raw_view: false });
             state.active_tab = state.tabs.len() - 1;
         }
         Err(error) => {

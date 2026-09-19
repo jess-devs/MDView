@@ -1241,5 +1241,32 @@ observación directa.
 Con esta historia, las tres de `distribucion` quedan verificadas: RF-02
 (a través de RF-02.1) queda por fin cubierto, tras haber quedado
 pendiente desde `varios-documentos-en-pestanas` e
-`integracion-con-windows`. El proyecto no tiene más features
-planificadas.
+`integracion-con-windows`.
+
+---
+
+## HU-01 (ver-markdown-en-crudo) — Alternar entre el documento renderizado y su texto en crudo
+
+Verificado el 2026-09-18. `cargo test`: 31/31 en verde, sin tests nuevos
+(AD-30 ya anotaba por qué: alternar un `bool` y mostrar un `String` no
+tiene lógica de analizador que probar).
+
+**Método.** Documento de prueba (`pruebas/crudo-doc.md`) con front
+matter, una etiqueta `<b>` incrustada y una línea deliberadamente más
+ancha que la ventana, abierto junto a un segundo documento simple
+(`pruebas/instancia-doc-b.md`) para CA-01.6.
+
+| Criterio | Resultado | Evidencia |
+| --- | --- | --- |
+| CA-01.1 — Renderizado por defecto, control visible | pasa | Captura: tabla de front matter y encabezado renderizados, botón «Ver crudo» junto a las pestañas. |
+| CA-01.2 — El crudo es idéntico al archivo | pasa | Captura tras pulsar el botón: `---`, `titulo:`, `autor:`, `**negrita**` y `<b>...</b>` aparecen tal cual, sin interpretar. |
+| CA-01.3 — Tipografía monoespaciada | pasa | Misma captura: fuente monoespaciada visible a simple vista. |
+| CA-01.4 — Línea ancha entera, con desplazamiento horizontal | pasa | Captura tras desplazar: aparece el resto de la línea («aaaaaaaaaa bbbbbbbbbb...») con una barra de desplazamiento horizontal propia, sin partir la línea. |
+| CA-01.5 — Volver a pulsar restaura el renderizado | pasa | Captura idéntica a la de CA-01.1, tras alternar dos veces. |
+| CA-01.6 — El modo es de cada pestaña | pasa | Con «crudo-doc.md» en modo crudo, cambiar a «instancia-doc-b.md» la mostró renderizada; volver a «crudo-doc.md» la mostró todavía en crudo. |
+
+**Estado de la historia:** verificada. Los seis criterios pasan por
+observación directa.
+
+Con esta historia, la única de `ver-markdown-en-crudo` queda verificada:
+RF-23 queda cubierto.
