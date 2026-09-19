@@ -30,7 +30,8 @@ abrir otro programa.
    selección) funciona.
 5. CA-01.5 — Deshacer revierte el último cambio; rehacer lo repone.
 
-**Estado.** pendiente.
+**Estado.** verificada. Los cinco criterios pasan por observación; el
+detalle está en `docs/04-calidad.md`.
 
 ---
 
@@ -52,7 +53,8 @@ que acabo de escribir.
 3. CA-02.3 — El atajo de teclado habitual del sistema para guardar
    produce el mismo resultado que el botón.
 
-**Estado.** pendiente.
+**Estado.** verificada. Los tres criterios pasan por observación; el
+detalle está en `docs/04-calidad.md`.
 
 ---
 
@@ -72,7 +74,8 @@ descuido.
 3. CA-03.3 — Deshacer todos los cambios hasta volver al texto original
    quita la marca también, sin necesidad de guardar.
 
-**Estado.** pendiente.
+**Estado.** verificada. Los tres criterios pasan por observación; el
+detalle está en `docs/04-calidad.md`.
 
 ---
 
@@ -100,7 +103,8 @@ con cambios sin guardar (HU-03).
    ningún diálogo: el comportamiento de RF-05/RF-07 para ese caso no
    cambia.
 
-**Estado.** pendiente.
+**Estado.** verificada. Los seis criterios pasan por observación; el
+detalle está en `docs/04-calidad.md`.
 
 ---
 

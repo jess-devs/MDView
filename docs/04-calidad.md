@@ -1270,3 +1270,101 @@ observación directa.
 
 Con esta historia, la única de `ver-markdown-en-crudo` queda verificada:
 RF-23 queda cubierto.
+
+---
+
+## HU-01 (edicion-con-confirmacion) — Habilitar la edición y escribir en el documento
+
+Verificado el 2026-09-18. `cargo test`: 31/31 en verde. Documento de
+prueba dedicado (`pruebas/edicion-doc.md`), porque guardar escribe de
+verdad el archivo — no se reutilizó ningún documento de otra historia.
+
+**Nota de proceso — un defecto real encontrado por observación.** La
+primera versión usaba `InputState::new(...).multi_line(true).rows(20)`:
+al habilitar la edición, el cuadro solo mostraba la primera línea del
+documento, con una altura de una sola fila, pese a `rows(20)`. Se
+corrigió a `.auto_grow(10, 200)`, que sí calcula su altura a partir del
+contenido real. Encontrado por la misma regla de siempre: un criterio se
+verifica mirando la pantalla, no leyendo el código y asumiendo que
+`rows(20)` hace lo que su nombre sugiere.
+
+| Criterio | Resultado | Evidencia |
+| --- | --- | --- |
+| CA-01.1 — Solo lectura por defecto, control visible | pasa | Captura: documento renderizado, «Ver crudo» y «Editar» visibles, ningún cuadro editable. |
+| CA-01.2 — «Editar» muestra el crudo, editable | pasa | Captura: cuadro de texto con las dos líneas del documento, tras corregir el defecto de altura de arriba. |
+| CA-01.3 — Escribir inserta en el cursor | pasa | Captura: « Nueva frase agregada.» insertado al final de la segunda línea, donde se puso el cursor. |
+| CA-01.4 — Seleccionar y reemplazar funciona | pasa | Captura: doble clic seleccionó «original», escribir «Contenido» lo reemplazó. |
+| CA-01.5 — Deshacer/rehacer | pasa | Captura tras `Ctrl+Z`: «Contenido» volvió a «original». Captura tras `Ctrl+Y`: volvió a «Contenido». |
+
+**Estado de la historia:** verificada. Los cinco criterios pasan por
+observación directa.
+
+---
+
+## HU-02 (edicion-con-confirmacion) — Guardar los cambios
+
+Verificado el 2026-09-18, a continuación de HU-01 en la misma sesión.
+
+| Criterio | Resultado | Evidencia |
+| --- | --- | --- |
+| CA-02.1 — El botón de guardar escribe el archivo | pasa | El archivo en disco cambió a «Texto Contenido antes de cualquier edicion. Nueva frase agregada.», observado fuera de MDView (aviso automático de cambio en disco al releer el archivo). |
+| CA-02.2 — Vuelve a mostrarse renderizado, con el cambio | pasa | Captura: tras guardar, la pestaña volvió a mostrar el documento renderizado con el texto nuevo, sin el asterisco de cambios sin guardar. |
+| CA-02.3 — El atajo del sistema (`Ctrl+S`) hace lo mismo | pasa | Captura: escribir « Guardado con Ctrl+S.», pulsar `Ctrl+S`, y el archivo en disco reflejó el cambio igual que con el botón. |
+
+**Nota de proceso — un defecto real encontrado por observación, de
+alcance.** RF-24.3/HU-02 solo pedían un botón; `Ctrl+S` se añadió porque
+CA-02.3 lo exige explícitamente, con su propia acción de GPUI (`Save`,
+`render::init`) y sin contexto de tecla, para que dispare aunque el foco
+esté dentro del editor — que no reclama esa combinación para nada propio,
+confirmado leyendo su lista de atajos antes de elegirla.
+
+**Estado de la historia:** verificada. Los tres criterios pasan por
+observación directa.
+
+---
+
+## HU-03 (edicion-con-confirmacion) — Indicador de cambios sin guardar
+
+Verificado el 2026-09-18, observado de paso durante HU-01/HU-02 y
+confirmado aparte para CA-03.3.
+
+| Criterio | Resultado | Evidencia |
+| --- | --- | --- |
+| CA-03.1 — Editar marca la pestaña | pasa | Captura: al escribir, la pestaña pasó a «* edicion-doc.md» y el botón a «Guardar *». |
+| CA-03.2 — Guardar quita la marca | pasa | Misma captura que CA-02.2: sin asterisco tras guardar. |
+| CA-03.3 — Deshacer hasta el original quita la marca sin guardar | pasa | Captura: tras escribir « temporal» y deshacer con `Ctrl+Z`, la pestaña volvió a «edicion-doc.md» (sin asterisco) y «Guardar» sin asterisco, sin haber guardado nada. |
+
+**Estado de la historia:** verificada. Los tres criterios pasan por
+observación directa.
+
+---
+
+## HU-04 (edicion-con-confirmacion) — Confirmar antes de perder cambios sin guardar
+
+Verificado el 2026-09-18.
+
+**Nota de proceso — un defecto real encontrado por observación.** La
+primera versión de esta historia no mostraba ningún diálogo al cerrar
+una pestaña con cambios sin guardar: el botón resaltaba al pulsarlo,
+pero no pasaba nada más. La causa era que `Root` no compone la capa de
+diálogos por sí sola —igual que ya pasa con las notificaciones—: hacía
+falta llamar a `Root::render_dialog_layer(window, cx)` junto a
+`Root::render_notification_layer`, y esa llamada no estaba. Encontrado
+exactamente por la regla del proyecto: el código compilaba y el botón
+respondía al clic, pero nada se veía en pantalla, así que no pasaba.
+
+| Criterio | Resultado | Evidencia |
+| --- | --- | --- |
+| CA-04.1 — Diálogo con tres opciones | pasa | Captura: «Cambios sin guardar» con los botones Cancelar, Descartar, Guardar. |
+| CA-04.2 — «Guardar» guarda y cierra | pasa | El archivo en disco reflejó el texto editado («... guardado desde dialogo»); la ventana se cerró (única pestaña). |
+| CA-04.3 — «Descartar» cierra sin escribir | pasa | El archivo en disco quedó exactamente como antes de editar («Texto original antes de cualquier edicion.»), sin la palabra «editado» que se había escrito. |
+| CA-04.4 — «Cancelar» no cambia nada | pasa | Captura: tras «Cancelar», la pestaña seguía abierta con el texto editado intacto y sin guardar. |
+| CA-04.5 — La última pestaña también pregunta (RF-07 revisado) | pasa | En los tres casos anteriores había una sola pestaña abierta; «Guardar» y «Descartar» terminaron la aplicación **después** de responder, nunca antes. |
+| CA-04.6 — Sin cambios, cerrar no muestra diálogo | pasa | Captura: pestaña sin marca de cambios, clic en «×», la aplicación terminó de inmediato, sin diálogo. |
+
+**Estado de la historia:** verificada. Los seis criterios pasan por
+observación directa.
+
+Con esta historia, las cuatro de `edicion-con-confirmacion` quedan
+verificadas: RF-24 queda cubierto, en el alcance que `requisitos.md`
+acotó desde el principio (editar el crudo, no el árbol renderizado).

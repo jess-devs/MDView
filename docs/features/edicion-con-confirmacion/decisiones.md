@@ -1,6 +1,6 @@
 # Decisiones — edicion-con-confirmacion
 
-> Estado: borrador
+> Estado: cerrada, sus cuatro historias verificadas
 > Última actualización: 2026-09-18
 > Modo: new-feature
 
@@ -36,13 +36,19 @@ sería repetir, peor, lo que la dependencia ya adoptada (AD-01) trae de
 fábrica — exactamente el ahorro que `01-alcance.md` dejó anotado como
 condicionado a qué se decidiera en la Fase 4.
 
-**Decisión — `ViewMode` reemplaza a `raw_view: bool` (AD-30).**
-`enum ViewMode { Rendered, Raw, Editing(Entity<InputState>) }` en vez de
-un segundo `bool` junto al de AD-30: dos booleanos independientes
-permitirían el estado sin sentido «crudo y editando a la vez», que un
-enum hace irrepresentable en vez de solo indocumentado. Es una revisión
-de AD-30, no su abandono: `Raw` sigue siendo exactamente lo que AD-30
-construyó, ahora una variante entre otras.
+**Decisión — `ViewMode` reemplaza a `raw_view: bool` (AD-30), pero vive
+sin ningún tipo de GPUI dentro.** `enum ViewMode { Rendered, Raw,
+Editing }`, sin payload, en `app.rs` junto a `DocumentTab` — dos
+booleanos independientes permitirían el estado sin sentido «crudo y
+editando a la vez», que un enum hace irrepresentable en vez de solo
+indocumentado. El `Entity<InputState>` de la pestaña en edición **no**
+vive en `DocumentTab`: eso metería un tipo de componente de interfaz
+dentro del módulo que, por AD-04, no debe conocer el aspecto de nada.
+Vive en `DocumentView` (`render.rs`), en un
+`HashMap<PathBuf, Entity<InputState>>` propio, con la misma clave —la
+ruta canonicalizada— que ya identifica una pestaña desde AD-25. Es una
+revisión de AD-30, no su abandono: `Raw` sigue siendo exactamente lo que
+AD-30 construyó, ahora una variante entre otras.
 
 **Decisión — los cambios sin guardar se detectan comparando, no con un
 `bool` de estado.** `InputState::value()` contra `tab.raw`: si difieren,

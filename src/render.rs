@@ -2,6 +2,7 @@
 //! Owns no knowledge of the filesystem or of Markdown syntax.
 
 use std::{
+    collections::HashMap,
     ops::Range,
     path::{Path, PathBuf},
 };
@@ -9,6 +10,7 @@ use std::{
 use gpui::*;
 use gpui_component::{
     button::{Button, ButtonVariants},
+    input::{Input, InputState},
     notification::Notification,
     scroll::{ScrollableElement, ScrollbarAxis},
     tab::{Tab, TabBar},
@@ -16,9 +18,21 @@ use gpui_component::{
 };
 
 use crate::{
-    app::AppState,
+    app::{AppState, ViewMode},
     markdown::{Block, ImageRef, Inline, ListItem, Span, SpanStyle},
 };
+
+actions!(mdview, [Save]);
+
+/// Binds the system's usual save shortcut to the `Save` action (CA-02.3),
+/// with no context so it fires no matter what has focus — in particular,
+/// while the editor (`gpui_component::input`) has it, since that component
+/// does not claim `ctrl-s` for anything of its own. Called once, from
+/// `app::run`, the same place `gpui_component::init` runs its own one-time
+/// setup.
+pub fn init(cx: &mut App) {
+    cx.bind_keys([KeyBinding::new("ctrl-s", Save, None)]);
+}
 
 /// Maximum reading width, per AD-08.
 const READING_WIDTH: f32 = 720.0;
@@ -36,6 +50,12 @@ pub struct DocumentView {
     // closures already do from within this module.
     pub(crate) state: AppState,
     timing_scheduled: bool,
+    /// The live editor for each tab currently in `ViewMode::Editing`
+    /// (RF-24.1), keyed by the tab's canonicalized path — the same
+    /// identity `AppState`'s own tabs already use (AD-25). Lives here, not
+    /// on `DocumentTab`, because `app` does not know GPUI's UI components
+    /// (AD-04, AD-31): only a tab actually being edited has an entry.
+    editors: HashMap<PathBuf, Entity<InputState>>,
 }
 
 /// What a clicked link needs beyond its own URL (RF-14.1, RF-15.1):
@@ -55,7 +75,7 @@ struct LinkCtx {
 
 impl DocumentView {
     pub fn new(state: AppState) -> Self {
-        Self { state, timing_scheduled: false }
+        Self { state, timing_scheduled: false, editors: HashMap::new() }
     }
 }
 
@@ -86,27 +106,58 @@ impl Render for DocumentView {
         if self.state.no_path_given {
             column = column.child(render_empty_state(cx));
         } else if let Some(tab) = self.state.tabs.get(self.state.active_tab) {
-            if tab.raw_view {
-                column = column.child(render_raw(&tab.raw, self.state.active_tab, window, cx));
-            } else {
-                let link_ctx = LinkCtx { doc_dir: tab.path.parent().map(Path::to_path_buf), view: cx.entity() };
-                let mut code_index = 0;
-                let mut text_index = 0;
-                for block in &tab.blocks {
-                    column = column.child(render_block(block, &mut code_index, &mut text_index, &link_ctx, window, cx));
+            match tab.view {
+                ViewMode::Editing => {
+                    if let Some(input) = self.editors.get(&tab.path) {
+                        column = column.child(Input::new(input));
+                    }
+                }
+                ViewMode::Raw => {
+                    column = column.child(render_raw(&tab.raw, self.state.active_tab, window, cx));
+                }
+                ViewMode::Rendered => {
+                    let link_ctx = LinkCtx { doc_dir: tab.path.parent().map(Path::to_path_buf), view: cx.entity() };
+                    let mut code_index = 0;
+                    let mut text_index = 0;
+                    for block in &tab.blocks {
+                        column = column.child(render_block(block, &mut code_index, &mut text_index, &link_ctx, window, cx));
+                    }
                 }
             }
         }
 
-        let mut root = div().relative().size_full().v_flex();
+        let action_view = cx.entity();
+        let mut root = div().relative().size_full().v_flex().on_action::<Save>(move |_action, _window, cx| {
+            action_view.update(cx, |view, cx| save_active_tab(view, cx));
+        });
         if let Some(tab) = self.state.tabs.get(self.state.active_tab) {
+            let controls = match tab.view {
+                ViewMode::Editing => {
+                    let dirty = self
+                        .editors
+                        .get(&tab.path)
+                        .is_some_and(|input| input.read(cx).value().to_string() != tab.raw);
+                    render_save_controls(dirty, cx.entity()).into_any_element()
+                }
+                _ => render_view_controls(tab.view, cx.entity()).into_any_element(),
+            };
+            let dirty_paths: Vec<PathBuf> = self
+                .state
+                .tabs
+                .iter()
+                .filter(|tab| {
+                    tab.view == ViewMode::Editing
+                        && self.editors.get(&tab.path).is_some_and(|input| input.read(cx).value().to_string() != tab.raw)
+                })
+                .map(|tab| tab.path.clone())
+                .collect();
             root = root.child(
                 div()
                     .flex()
                     .items_center()
                     .w_full()
-                    .child(div().flex_1().child(render_tab_bar(&self.state.tabs, self.state.active_tab, cx.entity())))
-                    .child(render_view_toggle(tab.raw_view, cx.entity())),
+                    .child(div().flex_1().child(render_tab_bar(&self.state.tabs, self.state.active_tab, &dirty_paths, cx.entity())))
+                    .child(controls),
             );
         }
         // `Root` does not render notifications/dialogs/sheets on its own;
@@ -124,6 +175,7 @@ impl Render for DocumentView {
             ),
         )
         .children(Root::render_notification_layer(window, cx))
+        .children(Root::render_dialog_layer(window, cx))
     }
 }
 
@@ -133,12 +185,22 @@ impl Render for DocumentView {
 /// (CA-02.1): `TabBar::on_click` needs to mutate `AppState`, which a `render`
 /// function only reaches through the view's own `Entity` (AD-26) — a plain
 /// `&App` in scope here isn't enough, the way it was for `app::activate_link`.
-fn render_tab_bar(tabs: &[crate::app::DocumentTab], active_tab: usize, view: Entity<DocumentView>) -> impl IntoElement {
+fn render_tab_bar(
+    tabs: &[crate::app::DocumentTab],
+    active_tab: usize,
+    dirty_paths: &[PathBuf],
+    view: Entity<DocumentView>,
+) -> impl IntoElement {
     let close_view = view.clone();
     TabBar::new("document-tabs")
         .selected_index(active_tab)
         .children(tabs.iter().enumerate().map(|(ix, tab)| {
-            let label = tab.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+            let mut label = tab.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+            // RF-24.4: a leading marker, not appended, so it stays visible
+            // even if the tab bar truncates a long file name.
+            if dirty_paths.contains(&tab.path) {
+                label = format!("* {label}");
+            }
             let close_view = close_view.clone();
             Tab::new().label(label).suffix(render_close_tab_button(ix, close_view))
         }))
@@ -153,41 +215,158 @@ fn render_tab_bar(tabs: &[crate::app::DocumentTab], active_tab: usize, view: Ent
         })
 }
 
-/// Closes tab `ix` (RF-05.1, RF-07.1). Its own click handler, not
+/// `true` if tab `ix`'s editor (if any) has text that differs from what was
+/// last loaded or saved (RF-24.4) — the same comparison `render`'s own
+/// `dirty_paths` computes for the tab bar, needed again here because closing
+/// a tab (RF-24.5) has to make the same decision from a different callback.
+fn tab_is_dirty(view: &DocumentView, ix: usize, cx: &App) -> bool {
+    view.state
+        .tabs
+        .get(ix)
+        .is_some_and(|tab| view.editors.get(&tab.path).is_some_and(|input| input.read(cx).value().to_string() != tab.raw))
+}
+
+/// Closes tab `ix` (RF-05.1, RF-07.1, RF-24.5). Its own click handler, not
 /// `TabBar::on_click`'s: that one only ever reports which tab was clicked,
 /// with no way to tell the close button apart from the rest of the tab.
-/// Reuses the switching pattern from AD-26 — `Entity<DocumentView>::update`
-/// — for the same reason: closing a tab mutates `AppState`.
+/// With unsaved changes (RF-24.5), asks first — including when `ix` is the
+/// only tab left, the case that used to end the app without asking anything
+/// (RF-07, revised by AD-31): `close_tab` itself does not change, only when
+/// it gets called does.
 fn render_close_tab_button(ix: usize, view: Entity<DocumentView>) -> impl IntoElement {
     // A plain "×" glyph, not `IconName::Close`: gpui-component's bundled
     // icon SVGs resolve through an asset source MDView never registers (it
     // has no reason to embed the whole icon set for one button), so the
     // icon would render blank. Confirmed by observation, not assumed —
     // ver CA-03.1 en 04-calidad.md.
-    Button::new(("close-tab", ix)).label("×").ghost().xsmall().on_click(move |_event, _window, cx| {
-        view.update(cx, |view, cx| {
-            if crate::app::close_tab(&mut view.state, ix) {
-                cx.quit();
-            } else {
-                cx.notify();
-            }
+    Button::new(("close-tab", ix)).label("×").ghost().xsmall().on_click(move |_event, window, cx| {
+        let dirty = view.update(cx, |view, cx| tab_is_dirty(view, ix, cx));
+        if !dirty {
+            view.update(cx, |view, cx| {
+                if crate::app::close_tab(&mut view.state, ix) {
+                    cx.quit();
+                } else {
+                    cx.notify();
+                }
+            });
+            return;
+        }
+
+        let discard_view = view.clone();
+        let save_view = view.clone();
+        window.open_dialog(cx, move |dialog, _window, _cx| {
+            let discard_view = discard_view.clone();
+            let save_view = save_view.clone();
+            dialog
+                .title("Cambios sin guardar")
+                .child("Este documento tiene cambios sin guardar. ¿Qué quieres hacer?")
+                .footer(move |_ok, _cancel, _window, _cx| {
+                    let discard_view = discard_view.clone();
+                    let save_view = save_view.clone();
+                    vec![
+                        Button::new("cancel-close").label("Cancelar").ghost().on_click(move |_event, window, cx| {
+                            window.close_dialog(cx);
+                        }),
+                        Button::new("discard").label("Descartar").on_click(move |_event, window, cx| {
+                            discard_view.update(cx, |view, cx| {
+                                view.editors.remove(&view.state.tabs[ix].path);
+                                if crate::app::close_tab(&mut view.state, ix) {
+                                    cx.quit();
+                                } else {
+                                    cx.notify();
+                                }
+                            });
+                            window.close_dialog(cx);
+                        }),
+                        Button::new("save-and-close").label("Guardar").primary().on_click(move |_event, window, cx| {
+                            save_view.update(cx, |view, cx| {
+                                let path = view.state.tabs[ix].path.clone();
+                                if let Some(input) = view.editors.get(&path) {
+                                    let text = input.read(cx).value().to_string();
+                                    if crate::app::save_tab(&mut view.state.tabs[ix], text).is_ok() {
+                                        view.editors.remove(&path);
+                                    }
+                                }
+                                if crate::app::close_tab(&mut view.state, ix) {
+                                    cx.quit();
+                                } else {
+                                    cx.notify();
+                                }
+                            });
+                            window.close_dialog(cx);
+                        }),
+                    ]
+                })
         });
     })
 }
 
-/// The RF-23.1 toggle between rendered and raw view, next to the tab bar
-/// (AD-30) rather than inside each `Tab`: it acts on the active tab, not on
-/// how a tab looks in the strip.
-fn render_view_toggle(raw_view: bool, view: Entity<DocumentView>) -> impl IntoElement {
-    let label = if raw_view { "Ver renderizado" } else { "Ver crudo" };
-    Button::new("toggle-raw-view").label(label).ghost().xsmall().on_click(move |_event, _window, cx| {
-        view.update(cx, |view, cx| {
-            if let Some(tab) = view.state.tabs.get_mut(view.state.active_tab) {
-                tab.raw_view = !tab.raw_view;
-            }
-            cx.notify();
-        });
+/// The controls next to the tab bar when a tab is not being edited (RF-23.1,
+/// RF-24.1): the rendered/raw toggle (AD-30), and a separate button to start
+/// editing. Together, not inside each `Tab`, because both act on the active
+/// tab rather than describing how a tab looks in the strip (AD-31).
+fn render_view_controls(mode: ViewMode, view: Entity<DocumentView>) -> impl IntoElement {
+    let toggle_label = if mode == ViewMode::Raw { "Ver renderizado" } else { "Ver crudo" };
+    let toggle_view = view.clone();
+    div()
+        .flex()
+        .gap_2()
+        .child(Button::new("toggle-raw-view").label(toggle_label).ghost().xsmall().on_click(move |_event, _window, cx| {
+            toggle_view.update(cx, |view, cx| {
+                if let Some(tab) = view.state.tabs.get_mut(view.state.active_tab) {
+                    tab.view = if tab.view == ViewMode::Raw { ViewMode::Rendered } else { ViewMode::Raw };
+                }
+                cx.notify();
+            });
+        }))
+        .child(Button::new("start-editing").label("Editar").ghost().xsmall().on_click(move |_event, window, cx| {
+            let raw = view.read(cx).state.tabs.get(view.read(cx).state.active_tab).map(|tab| (tab.path.clone(), tab.raw.clone()));
+            let Some((path, raw)) = raw else { return };
+            let input = cx.new(|cx| InputState::new(window, cx).auto_grow(10, 200).default_value(raw));
+            view.update(cx, |view, cx| {
+                view.editors.insert(path, input);
+                if let Some(tab) = view.state.tabs.get_mut(view.state.active_tab) {
+                    tab.view = ViewMode::Editing;
+                }
+                cx.notify();
+            });
+        }))
+}
+
+/// The lone control while editing (RF-24.3): saving writes the file and
+/// returns the tab to `ViewMode::Rendered` (`app::save_tab`); there is no
+/// separate "cancel editing" affordance in this first entry — leaving
+/// without saving goes through closing the tab (RF-24.5), which is the only
+/// path any historia asks for.
+fn render_save_controls(dirty: bool, view: Entity<DocumentView>) -> impl IntoElement {
+    let label = if dirty { "Guardar *" } else { "Guardar" };
+    Button::new("save-tab").label(label).ghost().xsmall().on_click(move |_event, _window, cx| {
+        view.update(cx, |view, cx| save_active_tab(view, cx));
     })
+}
+
+/// Saves the active tab if it is being edited (RF-24.3); a no-op otherwise,
+/// which is exactly right for the `Save` action (CA-02.3): the system
+/// shortcut can fire with any tab in any mode, and only editing one means
+/// anything to save. Shared by `render_save_controls`'s button and `Save`'s
+/// `on_action` handler so the shortcut can never drift from what the button
+/// does.
+fn save_active_tab(view: &mut DocumentView, cx: &mut Context<DocumentView>) {
+    let active = view.state.active_tab;
+    let Some(path) = view.state.tabs.get(active).map(|tab| tab.path.clone()) else { return };
+    let Some(input) = view.editors.get(&path) else { return };
+    let text = input.read(cx).value().to_string();
+    if let Some(tab) = view.state.tabs.get_mut(active) {
+        match crate::app::save_tab(tab, text) {
+            Ok(()) => {
+                view.editors.remove(&path);
+            }
+            Err(_) => {
+                view.state.pending_notice = Some(format!("No se pudo guardar «{}».", path.display()));
+            }
+        }
+    }
+    cx.notify();
 }
 
 /// Renders a document's exact text (RF-23.1, RF-23.2): the same

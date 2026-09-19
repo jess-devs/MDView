@@ -4,8 +4,8 @@ Visor de archivos Markdown para escritorio, escrito en Rust con GPUI. Abre
 documentos `.md` renderizados en pestañas, con el objetivo de sustituir la
 costumbre de abrir un IDE solo para leer un archivo de texto.
 
-Estado: siete features cerradas (veintiocho historias verificadas), una
-octava en curso. Ver la tabla de abajo.
+Estado: ocho features cerradas (treinta y dos historias verificadas).
+Ver la tabla de abajo.
 
 ## Documentación
 
@@ -26,15 +26,16 @@ tocar código.
 | `docs/features/integracion-con-windows/` | Ídem de la quinta: asociación de `.md`, doble clic e instancia única (solo RF-03.1; RF-02 se aplazó a la sexta). |
 | `docs/features/distribucion/` | Ídem de la sexta: instalador, integración en el PATH y versión portable (RF-02.1, RF-21.1, RF-22.1). |
 | `docs/features/ver-markdown-en-crudo/` | Ídem de la séptima: alternar entre documento renderizado y texto en crudo (RF-23). |
-| `docs/features/edicion-con-confirmacion/` | Ídem de la octava, en curso: edición con confirmación explícita (RF-24), acotada a editar el crudo con `gpui_component::input`. |
+| `docs/features/edicion-con-confirmacion/` | Ídem de la octava: edición con confirmación explícita (RF-24), acotada a editar el crudo con `gpui_component::input`. |
 
-Estado: siete features cerradas — `ver-un-documento`, `enlaces-e-imagenes`,
+Estado: ocho features cerradas — `ver-un-documento`, `enlaces-e-imagenes`,
 `front-matter-y-html`, `varios-documentos-en-pestanas`,
 `integracion-con-windows`, `distribucion` (cerró RF-02, pendiente desde
-`varios-documentos-en-pestanas`) y `ver-markdown-en-crudo` (cerró RF-23,
-aplazado desde el 2026-08-20). `edicion-con-confirmacion` abierta el
-2026-09-18. Una más planeada después: `multiplataforma`, bloqueada en su
-verificación hasta que exista una máquina Linux o Mac.
+`varios-documentos-en-pestanas`), `ver-markdown-en-crudo` (cerró RF-23,
+aplazado desde el 2026-08-20) y `edicion-con-confirmacion` (cerró RF-24,
+aplazado desde el 2026-08-20, acotado a editar el texto crudo). Una más
+planeada: `multiplataforma`, bloqueada en su verificación hasta que
+exista una máquina Linux o Mac.
 
 El trabajo de las primeras seis features estaba dividido según
 `docs/features/enlaces-e-imagenes/plan.md` (las cinco primeras) y

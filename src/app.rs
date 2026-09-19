@@ -30,16 +30,31 @@ pub enum Mode {
 /// names its tab (RF-06.1) and identifies it for RF-04.1's dedup — always
 /// canonicalized (`std::fs::canonicalize`), so two paths that resolve to the
 /// same file on disk compare equal without either caller re-deriving that.
+/// What a tab currently shows (RF-23.1, RF-24.1). An enum, not two
+/// independent `bool`s, so "raw and editing at once" is unrepresentable
+/// rather than merely undocumented (AD-31). The `Entity<InputState>` behind
+/// `Editing` does not live here: `app` coordinates, it does not know GPUI's
+/// UI components (AD-04) — `render::DocumentView` keeps that map instead.
+#[derive(Clone, Copy, PartialEq, Eq, Default)]
+pub enum ViewMode {
+    #[default]
+    Rendered,
+    Raw,
+    Editing,
+}
+
 pub struct DocumentTab {
     pub path: PathBuf,
     pub blocks: Vec<markdown::Block>,
     /// The file's exact text, kept alongside `blocks` for RF-23.1: showing
     /// it raw doesn't re-read the file or re-run `markdown::parse`, so it
-    /// can never drift from what was actually loaded (AD-30).
+    /// can never drift from what was actually loaded (AD-30). Also the
+    /// baseline RF-24.4 compares an editor's live text against, to decide
+    /// whether there are unsaved changes.
     pub raw: String,
-    /// Whether this tab currently shows `raw` instead of `blocks` (RF-23.1).
-    /// Per-tab, not global: switching tabs must not change another tab's mode.
-    pub raw_view: bool,
+    /// What this tab currently shows. Per-tab, not global: switching tabs
+    /// must not change another tab's mode.
+    pub view: ViewMode,
 }
 
 pub struct AppState {
@@ -87,6 +102,7 @@ pub fn run(start: SystemTime) {
     let app = Application::new();
     app.run(move |cx| {
         gpui_component::init(cx);
+        crate::render::init(cx);
 
         let mut tabs: Vec<DocumentTab> = Vec::new();
         let mut errors = Vec::new();
@@ -103,7 +119,7 @@ pub fn run(start: SystemTime) {
                     }
                     let base_dir = canonical.parent();
                     let blocks = markdown::parse(&text, base_dir);
-                    tabs.push(DocumentTab { path: canonical, blocks, raw: text, raw_view: false });
+                    tabs.push(DocumentTab { path: canonical, blocks, raw: text, view: ViewMode::Rendered });
                 }
                 Err(error) => errors.push(error_message(path, error)),
             }
@@ -300,7 +316,7 @@ fn open_or_activate_tab(state: &mut AppState, target: &Path) {
         Ok(text) => {
             let base_dir = canonical.parent();
             let blocks = markdown::parse(&text, base_dir);
-            state.tabs.push(DocumentTab { path: canonical, blocks, raw: text, raw_view: false });
+            state.tabs.push(DocumentTab { path: canonical, blocks, raw: text, view: ViewMode::Rendered });
             state.active_tab = state.tabs.len() - 1;
         }
         Err(error) => {
@@ -315,6 +331,20 @@ fn open_or_activate_tab(state: &mut AppState, target: &Path) {
             state.pending_notice = Some(error_message(shown, error));
         }
     }
+}
+
+/// Writes `text` to `tab.path` and updates `tab.raw`/`tab.blocks` to match
+/// (RF-24.3): saving must leave the tab showing exactly what got written,
+/// the same invariant a freshly opened document already keeps between
+/// `raw` and `blocks`. Returns the write error, if any, without changing
+/// `tab.view` — the caller decides what a failed save should look like.
+pub fn save_tab(tab: &mut DocumentTab, text: String) -> std::io::Result<()> {
+    std::fs::write(&tab.path, &text)?;
+    let base_dir = tab.path.parent();
+    tab.blocks = markdown::parse(&text, base_dir);
+    tab.raw = text;
+    tab.view = ViewMode::Rendered;
+    Ok(())
 }
 
 /// Closes one tab (RF-05.1). Returns `true` when it was the only one open

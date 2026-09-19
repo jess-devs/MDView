@@ -16,14 +16,17 @@ las teclas del sistema (`InputState::undo`/`redo`, en `input.rs`, vía
 de coste condicionado a Fase 4: adoptar `gpui-component` (AD-01) abarata
 esta función si se apoya en su componente. Nada de esto se reimplementa.
 
-**Modelo de estado: un enum, no un segundo `bool` junto a `raw_view`.**
-`DocumentTab.raw_view: bool` (AD-30) se sustituye por
-`view: ViewMode { Rendered, Raw, Editing(Entity<InputState>) }`. Un
-`bool` adicional para «editando» permitiría el estado imposible
-«`raw_view = true` y editando a la vez», que no significa nada —un enum
-lo hace irrepresentable, no solo indocumentado. `Editing` carga su
-propio `Entity<InputState>` (necesita `Window`/`Context` para crearse,
-así que se construye en el `on_click` del botón «Editar», no antes).
+**Modelo de estado: un enum en `app.rs`, sin GPUI dentro; el
+`InputState` vive en `DocumentView`.** `DocumentTab.raw_view: bool`
+(AD-30) se sustituye por `view: ViewMode { Rendered, Raw, Editing }`,
+sin payload — un `bool` adicional para «editando» permitiría el estado
+imposible «`raw_view = true` y editando a la vez», que un enum hace
+irrepresentable. El `Entity<InputState>` de cada pestaña en edición no
+puede vivir en `DocumentTab`: por AD-04, `app` coordina, no conoce
+componentes de interfaz. Vive en `DocumentView.editors:
+HashMap<PathBuf, Entity<InputState>>` (`render.rs`), creado al pulsar
+«Editar» —necesita `Window`/`Context`, que solo existen ahí dentro— y
+quitado del mapa al guardar, descartar, o cerrar la pestaña.
 
 **Guardar.** Un botón junto al de «Editar»/«Ver crudo», visible solo en
 `ViewMode::Editing`, que: lee `input_state.value()`, escribe ese texto en
