@@ -1,6 +1,6 @@
 # Decisiones — distribucion
 
-> Estado: borrador
+> Estado: cerrada, sus tres historias verificadas
 > Última actualización: 2026-09-18
 > Modo: new-feature
 

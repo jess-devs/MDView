@@ -4,8 +4,8 @@ Visor de archivos Markdown para escritorio, escrito en Rust con GPUI. Abre
 documentos `.md` renderizados en pestañas, con el objetivo de sustituir la
 costumbre de abrir un IDE solo para leer un archivo de texto.
 
-Estado: cinco features cerradas (veinticuatro historias verificadas), la
-sexta en curso. Ver la tabla de abajo.
+Estado: seis features cerradas (veintisiete historias verificadas). Ver
+la tabla de abajo.
 
 ## Documentación
 
@@ -26,15 +26,16 @@ tocar código.
 | `docs/features/integracion-con-windows/` | Ídem de la quinta: asociación de `.md`, doble clic e instancia única (solo RF-03.1; RF-02 se aplazó a la sexta). |
 | `docs/features/distribucion/` | Ídem de la sexta y última: instalador, integración en el PATH y versión portable (RF-02.1, RF-21.1, RF-22.1). |
 
-Estado: `ver-un-documento`, `enlaces-e-imagenes`, `front-matter-y-html`,
-`varios-documentos-en-pestanas` e `integracion-con-windows` cerradas.
-`distribucion` abierta, sus tres historias pendientes.
+Estado: las seis features cerradas — `ver-un-documento`,
+`enlaces-e-imagenes`, `front-matter-y-html`, `varios-documentos-en-pestanas`,
+`integracion-con-windows` y `distribucion`. Con `distribucion` cerrada, RF-02
+(pendiente desde `varios-documentos-en-pestanas`) queda cubierto y el
+proyecto no tiene más features planificadas.
 
-El trabajo está dividido en seis features. El orden y el reparto de
-requisitos entre ellas está en `docs/features/enlaces-e-imagenes/plan.md`
-(las cinco primeras) y en `docs/features/distribucion/requisitos.md` (la
-sexta, abierta el 2026-09-18 cuando se resolvió el mecanismo de
-instalación).
+El trabajo estaba dividido en seis features, todas cerradas ya. El orden
+y el reparto de requisitos entre ellas está en
+`docs/features/enlaces-e-imagenes/plan.md` (las cinco primeras) y en
+`docs/features/distribucion/requisitos.md` (la sexta).
 
 ## Reglas
 

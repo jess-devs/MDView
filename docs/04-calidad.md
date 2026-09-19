@@ -1207,3 +1207,39 @@ es una limitación conocida de la herramienta, no de este instalador.
 
 **Estado de la historia:** verificada. Los tres criterios pasan por
 observación directa.
+
+---
+
+## HU-03 (distribucion) — Usar la versión portable sin instalar nada
+
+Verificado el 2026-09-18, en sesión de escritorio real. `mdview.exe`
+extraído del mismo `.zip` que produce `packaging/build-portable.ps1`, en
+una carpeta nueva bajo Descargas donde MDView no estaba instalado ni se
+había instalado nunca en esa sesión.
+
+**Método.** Se registró el estado de
+`HKCU\Software\Classes\.md\OpenWithProgids` y de `HKCU\Environment\Path`
+antes de extraer el `.zip`, y se volvió a comprobar después de ejecutar
+el `.exe` extraído, para que CA-03.2 comparara un antes y un después
+real, no una suposición sobre lo que el ejecutable «debería» hacer.
+
+| Criterio | Resultado | Evidencia |
+| --- | --- | --- |
+| CA-03.1 — Se ejecuta con normalidad | pasa | Captura: la misma ventana de estado vacío de RF-19 («MDView muestra archivos Markdown...») que muestra cualquier invocación sin argumentos. |
+| CA-03.2 — No cambia el registro ni el PATH | pasa | `OpenWithProgids` y `HKCU\Environment\Path` idénticos byte a byte antes y después de ejecutar el portable. |
+
+**Nota de proceso.** Sin sorpresas: el ejecutable portable es literalmente
+el mismo `mdview.exe` que produce el instalador (AD-29), y el binario en
+sí no escribe nada en el registro ni en el PATH bajo ningún flujo — eso
+lo hace únicamente el script de Inno Setup. Que el portable no deje
+rastro no es una propiedad que haya que programar, es una consecuencia
+de que nunca se ejecutó ningún instalador.
+
+**Estado de la historia:** verificada. Los dos criterios pasan por
+observación directa.
+
+Con esta historia, las tres de `distribucion` quedan verificadas: RF-02
+(a través de RF-02.1) queda por fin cubierto, tras haber quedado
+pendiente desde `varios-documentos-en-pestanas` e
+`integracion-con-windows`. El proyecto no tiene más features
+planificadas.

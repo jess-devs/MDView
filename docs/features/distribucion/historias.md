@@ -81,7 +81,8 @@ una carpeta nueva, en un equipo donde MDView no está instalado.
    `.md` del usuario no cambia, y el PATH de usuario tampoco: la versión
    portable no escribe nada fuera de su propia carpeta.
 
-**Estado.** pendiente.
+**Estado.** verificada. Los dos criterios pasan por observación; el
+detalle está en `docs/04-calidad.md`.
 
 ---
 
