@@ -13,7 +13,8 @@ AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 DefaultDirName={localappdata}\Programs\{#MyAppName}
 DisableProgramGroupPage=yes
-UninstallDisplayIcon={app}\{#MyAppExeName}
+SetupIconFile=mdview.ico
+UninstallDisplayIcon={app}\mdview.ico
 ; RF-02.1 y RF-21.1 exigen que no haga falta administrador: todo el registro
 ; y el PATH que escribe este instalador viven en HKCU y en el perfil del
 ; usuario, nunca en HKLM ni en Archivos de programa.
@@ -27,6 +28,7 @@ SolidCompression=yes
 
 [Files]
 Source: "..\target\release\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "mdview.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 [Registry]
 ; ProgID propio de MDView para abrir .md, y su comando de apertura.

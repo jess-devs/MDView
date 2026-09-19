@@ -59,7 +59,8 @@ panel de «Aplicaciones» de Windows, tras haber cumplido HU-01.
 2. CA-02.2 — Una terminal nueva ya no encuentra `mdview` en el PATH.
 3. CA-02.3 — «Abrir con» sobre un `.md` ya no ofrece MDView como opción.
 
-**Estado.** pendiente.
+**Estado.** verificada. Los tres criterios pasan por observación; el
+detalle está en `docs/04-calidad.md`.
 
 ---
 

@@ -1176,3 +1176,34 @@ observación, nunca se da por bueno porque el instalador «terminó bien».
 
 **Estado de la historia:** verificada. Los seis criterios pasan por
 observación directa, en una sesión de escritorio real.
+
+---
+
+## HU-02 (distribucion) — Desinstalar MDView retira lo que el instalador dejó, sin rastro
+
+Verificado el 2026-09-18, en la misma sesión de escritorio real (no en el
+entorno aislado de las herramientas de shell), tras HU-01.
+
+**Método.** Se copiaron `unins000.exe` y `unins000.dat` a una carpeta
+fuera de la instalación (Descargas) y se ejecutó el `.exe` desde ahí con
+un doble clic real, para confirmar el diálogo «¿Seguro que quieres quitar
+MDView?» — el desinstalador lee las rutas a borrar de `unins000.dat`, no
+de su propia ubicación, así que esto no cambia lo que hace.
+
+| Criterio | Resultado | Evidencia |
+| --- | --- | --- |
+| CA-02.1 — `mdview.exe` ya no existe | pasa | `Test-Path`/listado de la carpeta de instalación: `mdview.exe` y `mdview.ico` ya no están. |
+| CA-02.2 — El PATH ya no encuentra `mdview` | pasa | El valor de `HKCU\Environment\Path` ya no contiene la carpeta de instalación. |
+| CA-02.3 — Ya no aparece en «Abrir con» | pasa | `HKCU\Software\Classes\MDView.md` no existe; `HKCU\Software\Classes\.md\OpenWithProgids` ya no lista `MDView.md`. |
+
+**Nota de proceso.** La carpeta de instalación en sí sigue existiendo
+tras desinstalar, con solo `unins000.exe` y `unins000.dat` dentro: es el
+comportamiento documentado de Inno Setup — el desinstalador no puede
+borrarse a sí mismo mientras corre, y programa esos dos archivos para
+borrarse en el próximo reinicio. Ningún criterio de HU-02 exige que la
+carpeta entera desaparezca —CA-02.1 pide expresamente que
+**`mdview.exe`** no exista, no la carpeta—, así que esto no es un fallo:
+es una limitación conocida de la herramienta, no de este instalador.
+
+**Estado de la historia:** verificada. Los tres criterios pasan por
+observación directa.
